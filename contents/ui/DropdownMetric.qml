@@ -49,6 +49,8 @@ ColumnLayout {
 
     Local.Sparkline {
         visible: metric.showSparkline
+        autoSample: metric.showSparkline
+        onAutoSampleChanged: samples = []
         Layout.fillWidth: true
         Layout.preferredHeight: Kirigami.Units.gridUnit * 2
         sampleValue: metric.percent

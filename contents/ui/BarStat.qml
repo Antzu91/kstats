@@ -10,9 +10,13 @@ RowLayout {
 
     property string label
     property string value
+    property string valueWidthSample: "100.0%"
     property real percent: 0
     property color accentColor: Kirigami.Theme.highlightColor
     property bool showMeter: true
+    property bool dataAvailable: true
+    property string historyKey: ""
+
     property string previewMode: "sparkline"
     readonly property real labelWidth: Math.max(labelText.implicitWidth, stat.label.length <= 1 ? Kirigami.Units.gridUnit * 0.7 : Kirigami.Units.gridUnit * 1.25)
     readonly property real valueWidth: showMeter ? valueMetrics.width + 1 : Kirigami.Units.gridUnit * 3
@@ -20,6 +24,12 @@ RowLayout {
         ? (previewMode === "bar" ? Kirigami.Units.gridUnit * 0.85 : Kirigami.Units.gridUnit * 2.2)
         : 0
     readonly property real fixedWidth: labelWidth + valueWidth + (showMeter ? previewWidth + spacing * 2 : spacing)
+
+    onHistoryKeyChanged: {
+        if (sparklineLoader.item) {
+            sparklineLoader.item.samples = [];
+        }
+    }
 
     spacing: Math.max(1, Kirigami.Units.smallSpacing / 4)
     Layout.alignment: Qt.AlignVCenter
@@ -32,7 +42,7 @@ RowLayout {
         id: valueMetrics
 
         font: valueText.font
-        text: stat.showMeter ? "100.0%" : stat.value
+        text: stat.showMeter ? stat.valueWidthSample : stat.value
     }
 
     Controls.Label {
@@ -51,6 +61,7 @@ RowLayout {
 
     Rectangle {
         visible: stat.showMeter
+        opacity: stat.dataAvailable ? 1 : 0
         clip: true
         Layout.minimumWidth: stat.previewWidth
         Layout.preferredWidth: stat.previewWidth
@@ -82,14 +93,19 @@ RowLayout {
             color: Qt.rgba(stat.accentColor.r, stat.accentColor.g, stat.accentColor.b, 0.72)
         }
 
-        Local.Sparkline {
-            visible: stat.previewMode === "sparkline"
+        Loader {
+            id: sparklineLoader
+            active: stat.showMeter && stat.dataAvailable && stat.previewMode === "sparkline"
             anchors.fill: parent
             anchors.margins: 2
-            sampleValue: stat.percent
-            sampleLimit: 24
-            lineColor: stat.accentColor
-            showFill: true
+            sourceComponent: Component {
+                Local.Sparkline {
+                    sampleValue: stat.percent
+                    sampleLimit: 24
+                    lineColor: stat.accentColor
+                    showFill: true
+                }
+            }
         }
     }
 

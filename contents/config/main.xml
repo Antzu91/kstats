@@ -17,6 +17,12 @@
         <entry name="showMemory" type="Bool">
             <default>true</default>
         </entry>
+        <entry name="showGpu" type="Bool">
+            <default>false</default>
+        </entry>
+        <entry name="gpuDeviceId" type="String">
+            <default>gpu0</default>
+        </entry>
         <entry name="showDisk" type="Bool">
             <default>true</default>
         </entry>

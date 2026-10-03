@@ -21,6 +21,14 @@ PlasmoidItem {
     property alias diskWriteSensor: diskWrite
     property alias networkDownloadSensor: networkDownload
     property alias networkUploadSensor: networkUpload
+    readonly property var gpuDevices: gpuDiscovery.devices
+    readonly property string gpuDeviceId: root.configString(Plasmoid.configuration.gpuDeviceId)
+    readonly property var selectedGpu: gpuDevices.find(function(device) {
+        return device.key === root.gpuDeviceId;
+    }) || null
+    readonly property bool gpuDetailsVisible: selectedTab === 2
+        && (expanded || Plasmoid.formFactor === PlasmaCore.Types.Planar)
+    property alias gpuUsageMonitor: gpuUsage
     property int selectedTab: 0
     readonly property int historySampleLimit: 72
     readonly property int networkHistorySampleLimit: 48
@@ -45,6 +53,9 @@ PlasmoidItem {
         sensorText(diskUsage),
         sensorText(networkDownload),
         sensorText(networkUpload))
+        + (Plasmoid.configuration.showGpu
+            ? i18nc("@info:tooltip GPU name and usage", " | %1: %2", selectedGpu ? selectedGpu.name : i18n("GPU"), gpuUsage.text)
+            : "")
 
     function sensorText(sensor) {
         if (!sensor || !sensor.enabled || sensor.sensorId.length === 0) {
@@ -159,6 +170,7 @@ PlasmoidItem {
         var count = 0;
         count += Plasmoid.configuration.showCpu ? 1 : 0;
         count += Plasmoid.configuration.showMemory ? 1 : 0;
+        count += Plasmoid.configuration.showGpu ? 1 : 0;
         count += Plasmoid.configuration.showDisk ? 1 : 0;
         count += Plasmoid.configuration.showNetwork ? 1 : 0;
         return Math.max(1, count);
@@ -207,6 +219,18 @@ PlasmoidItem {
 
     Local.RunCommand {
         id: systemMonitorLauncher
+    }
+
+    Local.GpuDiscovery {
+        id: gpuDiscovery
+        active: Plasmoid.configuration.showGpu || root.gpuDetailsVisible
+    }
+
+    Local.GpuSensor {
+        id: gpuUsage
+        active: Plasmoid.configuration.showGpu || root.gpuDetailsVisible
+        sensorId: root.selectedGpu ? root.selectedGpu.usageSensorId : ""
+        updateRateLimit: root.sensorUpdateRate
     }
 
     Sensors.Sensor {

@@ -4,6 +4,7 @@ import QtQuick.Layouts
 
 import org.kde.kcmutils as KCM
 import org.kde.kirigami as Kirigami
+import "." as Local
 
 KCM.SimpleKCM {
     id: root
@@ -12,6 +13,8 @@ KCM.SimpleKCM {
     property alias cfg_compactBarLength: compactBarLength.value
     property alias cfg_showCpu: showCpu.checked
     property alias cfg_showMemory: showMemory.checked
+    property alias cfg_showGpu: showGpu.checked
+    property string cfg_gpuDeviceId: "gpu0"
     property alias cfg_showDisk: showDisk.checked
     property alias cfg_showNetwork: showNetwork.checked
     property alias cfg_cpuSensorId: cpuSensorId.text
@@ -28,6 +31,8 @@ KCM.SimpleKCM {
     property int cfg_compactBarLengthDefault
     property bool cfg_showCpuDefault
     property bool cfg_showMemoryDefault
+    property bool cfg_showGpuDefault
+    property string cfg_gpuDeviceIdDefault
     property bool cfg_showDiskDefault
     property bool cfg_showNetworkDefault
     property string cfg_cpuSensorIdDefault
@@ -37,6 +42,23 @@ KCM.SimpleKCM {
     property string cfg_diskWriteSensorIdDefault
     property string cfg_networkDownloadSensorIdDefault
     property string cfg_networkUploadSensorIdDefault
+
+    property Local.GpuDiscovery gpuDiscovery: Local.GpuDiscovery {}
+
+    readonly property var gpuChoices: {
+        var choices = gpuDiscovery.devices.map(function(device) {
+            return { key: device.key, name: device.name };
+        });
+        if (!choices.some(function(device) {
+            return device.key === root.cfg_gpuDeviceId;
+        })) {
+            choices.push({
+                key: root.cfg_gpuDeviceId,
+                name: i18nc("@item:inlistbox unavailable GPU", "%1 (unavailable)", root.cfg_gpuDeviceId || i18n("GPU"))
+            });
+        }
+        return choices;
+    }
 
     Kirigami.FormLayout {
         anchors.fill: parent
@@ -89,6 +111,24 @@ KCM.SimpleKCM {
             id: showMemory
             Kirigami.FormData.label: i18nc("@label", "Memory:")
             text: i18nc("@option:check", "Show in bar")
+        }
+
+        Controls.CheckBox {
+            id: showGpu
+            Kirigami.FormData.label: i18nc("@label", "GPU:")
+            text: i18nc("@option:check", "Show in bar")
+        }
+
+        Controls.ComboBox {
+            Kirigami.FormData.label: i18nc("@label", "Panel GPU:")
+            enabled: showGpu.checked
+            model: root.gpuChoices
+            textRole: "name"
+            valueRole: "key"
+            currentIndex: root.gpuChoices.findIndex(function(device) {
+                return device.key === root.cfg_gpuDeviceId;
+            })
+            onActivated: root.cfg_gpuDeviceId = currentValue
         }
 
         Controls.CheckBox {
