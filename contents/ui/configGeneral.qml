@@ -47,7 +47,7 @@ KCM.SimpleKCM {
 
     readonly property var gpuChoices: {
         var choices = gpuDiscovery.devices.map(function(device) {
-            return { key: device.key, name: device.name };
+            return { key: device.key, name: gpuDiscovery.deviceName(device) };
         });
         if (!choices.some(function(device) {
             return device.key === root.cfg_gpuDeviceId;
@@ -121,7 +121,11 @@ KCM.SimpleKCM {
 
         Controls.ComboBox {
             Kirigami.FormData.label: i18nc("@label", "Panel GPU:")
+            Layout.fillWidth: true
+            Layout.minimumWidth: Kirigami.Units.gridUnit * 12
             enabled: showGpu.checked
+            Controls.ToolTip.visible: hovered
+            Controls.ToolTip.text: currentText
             model: root.gpuChoices
             textRole: "name"
             valueRole: "key"

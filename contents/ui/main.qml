@@ -54,8 +54,12 @@ PlasmoidItem {
         sensorText(networkDownload),
         sensorText(networkUpload))
         + (Plasmoid.configuration.showGpu
-            ? i18nc("@info:tooltip GPU name and usage", " | %1: %2", selectedGpu ? selectedGpu.name : i18n("GPU"), gpuUsage.text)
+            ? i18nc("@info:tooltip GPU name and usage", " | %1: %2", selectedGpu ? gpuName(selectedGpu) : i18n("GPU"), gpuUsage.text)
             : "")
+
+    function gpuName(device) {
+        return gpuDiscovery.deviceName(device);
+    }
 
     function sensorText(sensor) {
         if (!sensor || !sensor.enabled || sensor.sensorId.length === 0) {

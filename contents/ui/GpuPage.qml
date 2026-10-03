@@ -23,7 +23,7 @@ Item {
         clip: true
 
         ColumnLayout {
-            width: Math.max(gpuScroll.availableWidth, implicitWidth)
+            width: gpuScroll.availableWidth
             spacing: Kirigami.Units.largeSpacing
 
             Repeater {
@@ -86,9 +86,10 @@ Item {
                             }
 
                             Controls.Label {
-                                text: gpuCard.modelData.name
+                                text: page.rootItem.gpuName(gpuCard.modelData)
                                 font.weight: Font.DemiBold
-                                elide: Text.ElideRight
+                                wrapMode: Text.Wrap
+                                textFormat: Text.PlainText
                                 Layout.fillWidth: true
                             }
                         }
