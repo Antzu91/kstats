@@ -128,6 +128,21 @@ Item {
         }
 
         ClickTarget {
+            visible: Plasmoid.configuration.showGpu
+            accentColor: Kirigami.Theme.focusColor
+            tabIndex: 2
+
+            Local.BarStat {
+                label: i18nc("@label", "GPU")
+                value: rootItem.gpuUsageMonitor.text
+                percent: rootItem.gpuUsageMonitor.percent
+                dataAvailable: rootItem.gpuUsageMonitor.available
+                historyKey: rootItem.gpuDeviceId
+                accentColor: Kirigami.Theme.focusColor
+            }
+        }
+
+        ClickTarget {
             visible: Plasmoid.configuration.showDisk
             accentColor: Kirigami.Theme.neutralTextColor
             tabIndex: 4
