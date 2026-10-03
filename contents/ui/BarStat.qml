@@ -10,6 +10,7 @@ RowLayout {
 
     property string label
     property string value
+    property string valueWidthSample: "100.0%"
     property real percent: 0
     property color accentColor: Kirigami.Theme.highlightColor
     property bool showMeter: true
@@ -42,7 +43,7 @@ RowLayout {
         id: valueMetrics
 
         font: valueText.font
-        text: stat.showMeter ? "100.0%" : stat.value
+        text: stat.showMeter ? stat.valueWidthSample : stat.value
     }
 
     Controls.Label {

@@ -134,7 +134,10 @@ Item {
 
             Local.BarStat {
                 label: i18nc("@label", "GPU")
-                value: rootItem.gpuUsageMonitor.text
+                value: rootItem.gpuUsageMonitor.available
+                    ? i18nc("@label GPU utilization percentage", "%1%", Math.round(rootItem.gpuUsageMonitor.percent))
+                    : rootItem.gpuUsageMonitor.text
+                valueWidthSample: i18nc("@label GPU utilization percentage", "%1%", 100)
                 percent: rootItem.gpuUsageMonitor.percent
                 dataAvailable: rootItem.gpuUsageMonitor.available
                 historyKey: rootItem.gpuDeviceId
