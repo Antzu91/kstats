@@ -227,6 +227,7 @@ PlasmoidItem {
 
     Local.GpuDiscovery {
         id: gpuDiscovery
+        active: Plasmoid.configuration.showGpu || root.gpuDetailsVisible
     }
 
     Local.GpuSensor {

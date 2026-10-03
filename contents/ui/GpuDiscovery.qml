@@ -7,6 +7,7 @@ import "." as Local
 Item {
     id: discovery
 
+    property bool active: true
     property var devices: []
     property var sensorNames: ({})
     property var hardwareNames: []
@@ -108,6 +109,8 @@ Item {
         delegate: Sensors.Sensor {
             required property var modelData
 
+            // Static names must not keep the GPU's monitoring backend running.
+            enabled: discovery.active && !discovery.sensorNames[modelData.key]
             sensorId: "gpu/" + modelData.key + "/name"
             updateRateLimit: 60000
             onValueChanged: {
