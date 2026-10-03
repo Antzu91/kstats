@@ -90,19 +90,19 @@ Controls.Pane {
                 }
 
                 Local.TabPill {
-                    checked: full.currentTab === 3
-                    iconName: "network-wired"
-                    accentColor: Kirigami.Theme.visitedLinkColor
-                    text: i18nc("@title:tab", "NET")
-                    onClicked: full.rootItem.selectTab(3)
-                }
-
-                Local.TabPill {
                     checked: full.currentTab === 4
                     iconName: "drive-harddisk"
                     accentColor: Kirigami.Theme.neutralTextColor
                     text: i18nc("@title:tab", "DISK")
                     onClicked: full.rootItem.selectTab(4)
+                }
+
+                Local.TabPill {
+                    checked: full.currentTab === 3
+                    iconName: "network-wired"
+                    accentColor: Kirigami.Theme.visitedLinkColor
+                    text: i18nc("@title:tab", "NET")
+                    onClicked: full.rootItem.selectTab(3)
                 }
             }
         }
