@@ -48,6 +48,12 @@ Enable `GPU: Show in bar` in the widget settings and choose a `Panel GPU`.
 The panel shows utilization and a sparkline. Click it to open usage, memory,
 and temperature readings for the detected GPUs. GPU display is off by default.
 
+The selector, expanded view, and tooltip show model names when available.
+KDE's names take priority; generic labels can fall back to the local PCI hardware
+database through `udevadm`. If the devices cannot be matched, the generic labels
+remain. Hardware database names may describe a family of cards rather than an
+exact model.
+
 Unavailable readings show `N/A` without changing the panel width. Monitoring
 retries automatically and keeps the selected GPU. KDE device IDs (`gpu0`,
 `gpu1`, etc.) may change after hardware changes; check the selection afterward.

@@ -1,13 +1,48 @@
 import QtQuick
+import QtQml.Models
 
 import org.kde.ksysguard.sensors as Sensors
+import "." as Local
 
 Item {
     id: discovery
 
     property bool active: true
     property var devices: []
+    property var sensorNames: ({})
+    property var hardwareNames: []
     readonly property var sensorTree: treeLoader.item
+
+    function deviceName(device) {
+        var name = sensorNames[device.key] || device.name;
+        var index = Number(device.key.substring(3));
+        var genericName = i18nc("@title %1 is GPU number", "GPU %1", index + 1);
+        if (name !== device.key && name !== genericName && !/^GPU \d+$/.test(name)) {
+            return i18nc("@label GPU number and model", "%1: %2", genericName, name);
+        }
+        // Only use the PCI ordering when every KDE device has a matching slot.
+        if (hardwareNames.length === devices.length && devices.every(function(entry, slot) {
+            return entry.key === "gpu" + slot;
+        }) && hardwareNames[index]) {
+            return i18nc("@label GPU number and model", "%1: %2", genericName, hardwareNames[index]);
+        }
+        return name;
+    }
+
+    function loadHardwareNames() {
+        var path = decodeURIComponent(Qt.resolvedUrl("../code/gpu-names.sh").toString().replace(/^file:\/\//, ""));
+        hardwareCommand.exec("sh '" + path.replace(/'/g, "'\\''") + "'", function(result) {
+            if (result.exitCode !== 0) {
+                discovery.hardwareNames = [];
+                return;
+            }
+            discovery.hardwareNames = result.stdout.split("\n").filter(function(line) {
+                return line.indexOf("\t") >= 0;
+            }).map(function(line) {
+                return line.substring(line.indexOf("\t") + 1).trim();
+            });
+        });
+    }
 
     function collectDevices(parentIndex, pathNames, devicesByKey) {
         var rows = parentIndex === undefined ? sensorTree.rowCount() : sensorTree.rowCount(parentIndex);
@@ -54,7 +89,10 @@ Item {
         });
         // Metadata updates must not recreate the popup cards and erase history.
         if (JSON.stringify(next) !== JSON.stringify(devices)) {
+            sensorNames = ({});
+            hardwareNames = [];
             devices = next;
+            loadHardwareNames();
         }
     }
 
@@ -76,6 +114,30 @@ Item {
             // A failed initial query needs a fresh model to request sensors again.
             treeLoader.active = false;
             treeLoader.active = true;
+        }
+    }
+
+    Local.RunCommand {
+        id: hardwareCommand
+    }
+
+    Instantiator {
+        model: discovery.devices
+
+        delegate: Sensors.Sensor {
+            required property var modelData
+
+            // Static names must not keep the GPU's monitoring backend running.
+            enabled: discovery.active && !discovery.sensorNames[modelData.key]
+            sensorId: "gpu/" + modelData.key + "/name"
+            updateRateLimit: 60000
+            onValueChanged: {
+                if (status === Sensors.Sensor.Ready && typeof value === "string" && value.trim().length > 0) {
+                    var names = Object.assign({}, discovery.sensorNames);
+                    names[modelData.key] = value.trim();
+                    discovery.sensorNames = names;
+                }
+            }
         }
     }
 
