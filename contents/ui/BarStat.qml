@@ -14,10 +14,11 @@ RowLayout {
     property color accentColor: Kirigami.Theme.highlightColor
     property bool showMeter: true
     property string previewMode: "sparkline"
-    readonly property real labelWidth: Math.max(labelText.implicitWidth, stat.label.length <= 1 ? Kirigami.Units.gridUnit * 0.7 : Kirigami.Units.gridUnit * 1.25)
-    readonly property real valueWidth: showMeter ? valueMetrics.width + 1 : Kirigami.Units.gridUnit * 3
+    // Round each slot so nested layouts keep the same gap between modules.
+    readonly property real labelWidth: Math.ceil(Math.max(labelText.implicitWidth, stat.label.length <= 1 ? Kirigami.Units.gridUnit * 0.7 : Kirigami.Units.gridUnit * 1.25))
+    readonly property real valueWidth: Math.ceil(showMeter ? valueMetrics.width + 1 : Kirigami.Units.gridUnit * 3)
     readonly property real previewWidth: showMeter
-        ? (previewMode === "bar" ? Kirigami.Units.gridUnit * 0.85 : Kirigami.Units.gridUnit * 2.2)
+        ? Math.ceil(previewMode === "bar" ? Kirigami.Units.gridUnit * 0.85 : Kirigami.Units.gridUnit * 2.2)
         : 0
     readonly property real fixedWidth: labelWidth + valueWidth + (showMeter ? previewWidth + spacing * 2 : spacing)
 
