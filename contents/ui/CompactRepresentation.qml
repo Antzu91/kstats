@@ -129,7 +129,7 @@ Item {
 
         ClickTarget {
             visible: Plasmoid.configuration.showGpu
-            accentColor: Kirigami.Theme.focusColor
+            accentColor: Kirigami.Theme.negativeTextColor
             tabIndex: 2
 
             Local.BarStat {
@@ -141,7 +141,7 @@ Item {
                 percent: rootItem.gpuUsageMonitor.percent
                 dataAvailable: rootItem.gpuUsageMonitor.available
                 historyKey: rootItem.gpuDeviceId
-                accentColor: Kirigami.Theme.focusColor
+                accentColor: Kirigami.Theme.negativeTextColor
             }
         }
 

@@ -104,7 +104,7 @@ Item {
                             secondaryValue: i18nc("@label", "Graphics processor usage")
                             sensorId: usageSensor.sensorId
                             percent: gpuCard.usage.percent
-                            accentColor: Kirigami.Theme.positiveTextColor
+                            accentColor: Kirigami.Theme.negativeTextColor
                         }
 
                         Local.DropdownMetric {

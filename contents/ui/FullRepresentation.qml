@@ -84,7 +84,7 @@ Controls.Pane {
                 Local.TabPill {
                     checked: full.currentTab === 2
                     iconName: "video-display"
-                    accentColor: Kirigami.Theme.focusColor
+                    accentColor: Kirigami.Theme.negativeTextColor
                     text: i18nc("@title:tab", "GPU")
                     onClicked: full.rootItem.selectTab(2)
                 }
