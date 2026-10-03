@@ -11,6 +11,7 @@ Item {
     property var devices: []
     property var sensorNames: ({})
     property var hardwareNames: []
+    readonly property var sensorTree: treeLoader.item
 
     function deviceName(device) {
         var name = sensorNames[device.key] || device.name;
@@ -77,7 +78,9 @@ Item {
 
     function rebuildDevices() {
         var devicesByKey = {};
-        collectDevices(undefined, [], devicesByKey);
+        if (sensorTree) {
+            collectDevices(undefined, [], devicesByKey);
+        }
         var keys = Object.keys(devicesByKey).sort(function(left, right) {
             return Number(left.substring(3)) - Number(right.substring(3));
         });
@@ -95,8 +98,23 @@ Item {
 
     Component.onCompleted: rebuildTimer.restart()
 
-    Sensors.SensorTreeModel {
-        id: sensorTree
+    Loader {
+        id: treeLoader
+        sourceComponent: Component {
+            Sensors.SensorTreeModel {}
+        }
+        onLoaded: rebuildTimer.restart()
+    }
+
+    Timer {
+        interval: 5000
+        running: discovery.active && discovery.devices.length === 0
+        repeat: true
+        onTriggered: {
+            // A failed initial query needs a fresh model to request sensors again.
+            treeLoader.active = false;
+            treeLoader.active = true;
+        }
     }
 
     Local.RunCommand {
@@ -124,7 +142,7 @@ Item {
     }
 
     Connections {
-        target: sensorTree
+        target: discovery.sensorTree
 
         function onModelReset() {
             rebuildTimer.restart();
