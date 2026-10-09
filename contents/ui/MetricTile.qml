@@ -12,6 +12,9 @@ Rectangle {
     property string iconName
     property string valueText
     property real percent: 0
+    property int sampleInterval: 1000
+    property bool dataAvailable: true
+    property string historyKey: ""
     property color accentColor: Kirigami.Theme.highlightColor
     property bool compact: false
     property bool showChart: true
@@ -65,6 +68,9 @@ Rectangle {
             Layout.fillHeight: true
             Layout.minimumHeight: Kirigami.Units.gridUnit
             sampleValue: tile.percent
+            sampleInterval: tile.sampleInterval
+            dataAvailable: tile.dataAvailable
+            historyKey: tile.historyKey
             lineColor: tile.accentColor
         }
 

@@ -95,11 +95,12 @@ Item {
                         }
 
                         Local.DropdownMetric {
+                            sampleInterval: page.rootItem.sensorUpdateRate
                             visible: gpuCard.modelData.usageSensorId.length > 0
                             title: i18nc("@label", "GPU")
                             iconName: "video-display"
                             primaryValue: gpuCard.usage.text
-                            showSparkline: gpuCard.usage.available
+                            dataAvailable: gpuCard.usage.available
                             showProgress: gpuCard.usage.available
                             secondaryValue: i18nc("@label", "Graphics processor usage")
                             sensorId: usageSensor.sensorId
@@ -108,11 +109,12 @@ Item {
                         }
 
                         Local.DropdownMetric {
+                            sampleInterval: page.rootItem.sensorUpdateRate
                             visible: gpuCard.modelData.memorySensorId.length > 0
                             title: i18nc("@label", "GPU Memory")
                             iconName: "memory"
                             primaryValue: memorySensor.text
-                            showSparkline: memorySensor.available
+                            dataAvailable: memorySensor.available
                             showProgress: memorySensor.available
                             secondaryValue: i18nc("@label", "Graphics memory used")
                             sensorId: memorySensor.sensorId
@@ -121,11 +123,12 @@ Item {
                         }
 
                         Local.DropdownMetric {
+                            sampleInterval: page.rootItem.sensorUpdateRate
                             visible: gpuCard.modelData.temperatureSensorId.length > 0
                             title: i18nc("@label", "GPU Temperature")
                             iconName: "temperature-normal"
                             primaryValue: temperatureSensor.text
-                            showSparkline: temperatureSensor.available
+                            dataAvailable: temperatureSensor.available
                             showProgress: temperatureSensor.available
                             secondaryValue: i18nc("@label", "Graphics processor temperature")
                             sensorId: temperatureSensor.sensorId

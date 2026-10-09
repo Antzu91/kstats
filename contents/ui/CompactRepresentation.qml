@@ -20,18 +20,6 @@ Item {
     readonly property real fixedWidth: Math.max(minimumBarWidth, hasConfiguredBarLength ? configuredBarLength : adaptiveBarLength)
     readonly property real contentWidth: Math.max(0, hasConfiguredBarLength ? fixedWidth - horizontalPadding * 2 : fixedWidth)
 
-    function networkRateNumber(text) {
-        const value = String(text).trim();
-        const match = value.match(/^(.*\S)\s+(\S+\/s)$/);
-        return match ? match[1] : value;
-    }
-
-    function networkRateUnit(text) {
-        const value = String(text).trim();
-        const match = value.match(/^(.*\S)\s+(\S+\/s)$/);
-        return match ? match[2] : "";
-    }
-
     Layout.minimumWidth: fixedWidth
     Layout.minimumHeight: Kirigami.Units.gridUnit
     Layout.preferredWidth: fixedWidth
@@ -46,6 +34,16 @@ Item {
         id: target
 
         property int tabIndex: 0
+        property string accessibleName
+        property string detailText
+        Controls.ToolTip.visible: targetMouse.containsMouse
+        Controls.ToolTip.text: detailText
+        activeFocusOnTab: true
+        Accessible.role: Accessible.Button
+        Accessible.name: accessibleName
+        Accessible.onPressAction: compact.rootItem.toggleTab(tabIndex)
+        Keys.onSpacePressed: compact.rootItem.toggleTab(tabIndex)
+        Keys.onReturnPressed: compact.rootItem.toggleTab(tabIndex)
         property color accentColor: Kirigami.Theme.highlightColor
         default property alias content: contentRow.data
         readonly property real horizontalPadding: compact.horizontalPadding
@@ -68,7 +66,7 @@ Item {
                 : targetMouse.containsMouse
                     ? Qt.rgba(target.accentColor.r, target.accentColor.g, target.accentColor.b, 0.10)
                     : "transparent"
-            border.width: target.active ? 1 : 0
+            border.width: target.active || target.activeFocus ? 1 : 0
             border.color: Qt.rgba(target.accentColor.r, target.accentColor.g, target.accentColor.b, 0.32)
         }
 
@@ -101,224 +99,73 @@ Item {
         transformOrigin: Item.TopLeft
         spacing: compact.moduleSpacing
 
-        ClickTarget {
-            visible: Plasmoid.configuration.showCpu
-            accentColor: Kirigami.Theme.positiveTextColor
-            tabIndex: 0
+        Repeater {
+            model: compact.rootItem.modules.ordered
 
-            Local.BarStat {
-                label: i18nc("@label", "CPU")
-                value: rootItem.sensorText(rootItem.cpuUsageSensor)
-                percent: rootItem.sensorPercent(rootItem.cpuUsageSensor)
-                accentColor: Kirigami.Theme.positiveTextColor
-            }
-        }
+            ClickTarget {
+                id: moduleTarget
+                required property var modelData
+                readonly property var sensor: compact.rootItem.panelSensor(modelData.id)
+                visible: Boolean(Plasmoid.configuration[modelData.visibilityKey])
+                accentColor: modelData.color
+                tabIndex: modelData.tabId
+                accessibleName: modelData.label
+                detailText: modelData.id === "network"
+                    ? i18nc("@info:tooltip", "%1: Upload %2, download %3", modelData.label,
+                        compact.rootItem.sensorText(compact.rootItem.networkUploadSensor),
+                        compact.rootItem.sensorText(compact.rootItem.networkDownloadSensor))
+                    : i18nc("@info:tooltip", "%1: %2", modelData.label,
+                        panelStat.dataAvailable ? panelStat.value : i18nc("@info:status", "N/A"))
 
-        ClickTarget {
-            visible: Plasmoid.configuration.showMemory
-            accentColor: Kirigami.Theme.focusColor
-            tabIndex: 1
+                Local.BarStat {
+                    id: panelStat
+                    visible: moduleTarget.modelData.id !== "network"
+                    label: moduleTarget.modelData.label
+                    showLabel: Boolean(Plasmoid.configuration[moduleTarget.modelData.id + "ShowLabel"])
+                    presentation: String(Plasmoid.configuration[moduleTarget.modelData.id + "Presentation"])
+                    value: moduleTarget.modelData.id === "gpu"
+                        ? (compact.rootItem.gpuUsageMonitor.available
+                            ? i18nc("@label GPU utilization percentage", "%1%", Math.round(compact.rootItem.gpuUsageMonitor.percent))
+                            : compact.rootItem.gpuUsageMonitor.text)
+                        : compact.rootItem.sensorText(moduleTarget.sensor)
+                    percent: moduleTarget.modelData.id === "gpu"
+                        ? compact.rootItem.gpuUsageMonitor.percent
+                        : compact.rootItem.sensorPercent(moduleTarget.sensor)
+                    dataAvailable: moduleTarget.modelData.id === "gpu"
+                        ? compact.rootItem.gpuUsageMonitor.available
+                        : compact.rootItem.sensorAvailable(moduleTarget.sensor)
+                    historyKey: moduleTarget.modelData.id === "gpu" ? compact.rootItem.gpuDeviceId
+                        : (moduleTarget.sensor ? moduleTarget.sensor.sensorId : "")
+                    sampleInterval: compact.rootItem.sensorUpdateRate
+                    accentColor: moduleTarget.accentColor
+                }
 
-            Local.BarStat {
-                label: i18nc("@label", "MEM")
-                value: rootItem.sensorText(rootItem.memoryUsageSensor)
-                percent: rootItem.sensorPercent(rootItem.memoryUsageSensor)
-                accentColor: Kirigami.Theme.focusColor
-            }
-        }
-
-        ClickTarget {
-            visible: Plasmoid.configuration.showGpu
-            accentColor: Kirigami.Theme.negativeTextColor
-            tabIndex: 2
-
-            Local.BarStat {
-                label: i18nc("@label", "GPU")
-                value: rootItem.gpuUsageMonitor.available
-                    ? i18nc("@label GPU utilization percentage", "%1%", Math.round(rootItem.gpuUsageMonitor.percent))
-                    : rootItem.gpuUsageMonitor.text
-                valueWidthSample: i18nc("@label GPU utilization percentage", "%1%", 100)
-                percent: rootItem.gpuUsageMonitor.percent
-                dataAvailable: rootItem.gpuUsageMonitor.available
-                historyKey: rootItem.gpuDeviceId
-                accentColor: Kirigami.Theme.negativeTextColor
-            }
-        }
-
-        ClickTarget {
-            visible: Plasmoid.configuration.showDisk
-            accentColor: Kirigami.Theme.neutralTextColor
-            tabIndex: 4
-
-            Local.BarStat {
-                label: i18nc("@label", "DSK")
-                value: rootItem.sensorText(rootItem.diskUsageSensor)
-                percent: rootItem.sensorPercent(rootItem.diskUsageSensor)
-                accentColor: Kirigami.Theme.neutralTextColor
-                previewMode: "bar"
-            }
-        }
-
-        ClickTarget {
-            visible: Plasmoid.configuration.showNetwork
-            accentColor: Kirigami.Theme.visitedLinkColor
-            tabIndex: 3
-
-            Controls.Label {
-                id: networkLabel
-
-                text: i18nc("@label", "NET")
-                color: Kirigami.Theme.visitedLinkColor
-                elide: Text.ElideRight
-                font.pixelSize: (plasmoid.configuration.barLabelFontSize != 0) ? plasmoid.configuration.barLabelFontSize : Kirigami.Theme.smallFont.pixelSize
-                font.weight: Font.DemiBold
-                horizontalAlignment: Text.AlignRight
-                Layout.alignment: Qt.AlignVCenter
-                Layout.minimumWidth: Math.max(implicitWidth, Kirigami.Units.gridUnit * 1.25)
-                Layout.preferredWidth: Math.max(implicitWidth, Kirigami.Units.gridUnit * 1.25)
-                Layout.maximumWidth: Math.max(implicitWidth, Kirigami.Units.gridUnit * 1.25)
-            }
-
-            ColumnLayout {
-                id: networkRates
-
-                readonly property real rateFontSize: Math.max(7, Kirigami.Theme.smallFont.pixelSize - 2)
-                readonly property real arrowWidth: Math.ceil(networkArrowMetrics.width)
-                readonly property real valueGap: Math.max(2, compact.innerSpacing)
-                readonly property real unitGap: Math.max(2, compact.innerSpacing)
-                readonly property real valuePadding: Math.max(2, Kirigami.Units.smallSpacing / 2)
-                readonly property real valueWidth: Math.ceil(networkValueMetrics.width) + valuePadding
-                readonly property real unitWidth: Math.ceil(networkUnitMetrics.width)
-                readonly property real valueSlotWidth: valueWidth + valueGap
-                readonly property real unitSlotWidth: unitWidth + unitGap
-                readonly property real fixedWidth: arrowWidth + valueSlotWidth + unitSlotWidth
-                readonly property real rowHeight: rateFontSize + 1
-
-                spacing: 1
-                Layout.alignment: Qt.AlignVCenter
-                Layout.minimumWidth: fixedWidth
-                Layout.preferredWidth: fixedWidth
-                Layout.maximumWidth: fixedWidth
-                Layout.preferredHeight: rowHeight * 2 + spacing
-
-                TextMetrics {
-                    id: networkArrowMetrics
-
-                    font.pixelSize: networkRates.rateFontSize
+                Controls.Label {
+                    visible: moduleTarget.modelData.id === "network" && Plasmoid.configuration.networkShowLabel
+                    text: moduleTarget.modelData.label
+                    color: moduleTarget.accentColor
+                    font.pixelSize: Plasmoid.configuration.barLabelFontSize || Kirigami.Theme.smallFont.pixelSize
                     font.weight: Font.DemiBold
-                    text: i18nc("@label upload", "↑")
+                    Layout.alignment: Qt.AlignVCenter
                 }
 
-                TextMetrics {
-                    id: networkValueMetrics
-
-                    font.pixelSize: networkRates.rateFontSize
-                    text: "999.9"
-                }
-
-                TextMetrics {
-                    id: networkUnitMetrics
-
-                    font.pixelSize: networkRates.rateFontSize
-                    text: "MiB/s"
-                }
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: networkRates.rowHeight
-                    spacing: 0
-
-                    Controls.Label {
-                        text: i18nc("@label upload", "↑")
-                        color: Kirigami.Theme.visitedLinkColor
-                        font.pixelSize: networkRates.rateFontSize
-                        font.weight: Font.DemiBold
-                        horizontalAlignment: Text.AlignRight
-                        verticalAlignment: Text.AlignVCenter
-                        Layout.minimumWidth: networkRates.arrowWidth
-                        Layout.preferredWidth: networkRates.arrowWidth
-                        Layout.maximumWidth: networkRates.arrowWidth
-                        Layout.preferredHeight: networkRates.rowHeight
-                    }
-
-                    Controls.Label {
-                        text: compact.networkRateNumber(rootItem.sensorText(rootItem.networkUploadSensor))
-                        color: Kirigami.Theme.textColor
-                        elide: Text.ElideRight
-                        font.pixelSize: networkRates.rateFontSize
-                        font.features: { "tnum": 1 }
-                        horizontalAlignment: Text.AlignRight
-                        verticalAlignment: Text.AlignVCenter
-                        leftPadding: networkRates.valueGap
-                        Layout.minimumWidth: networkRates.valueSlotWidth
-                        Layout.preferredWidth: networkRates.valueSlotWidth
-                        Layout.maximumWidth: networkRates.valueSlotWidth
-                        Layout.preferredHeight: networkRates.rowHeight
-                    }
-
-                    Controls.Label {
-                        text: compact.networkRateUnit(rootItem.sensorText(rootItem.networkUploadSensor))
-                        color: Kirigami.Theme.textColor
-                        elide: Text.ElideRight
-                        font.pixelSize: networkRates.rateFontSize
-                        horizontalAlignment: Text.AlignRight
-                        verticalAlignment: Text.AlignVCenter
-                        leftPadding: networkRates.unitGap
-                        Layout.minimumWidth: networkRates.unitSlotWidth
-                        Layout.preferredWidth: networkRates.unitSlotWidth
-                        Layout.maximumWidth: networkRates.unitSlotWidth
-                        Layout.preferredHeight: networkRates.rowHeight
-                    }
-                }
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: networkRates.rowHeight
-                    spacing: 0
-
-                    Controls.Label {
-                        text: i18nc("@label download", "↓")
-                        color: Kirigami.Theme.visitedLinkColor
-                        font.pixelSize: networkRates.rateFontSize
-                        font.weight: Font.DemiBold
-                        horizontalAlignment: Text.AlignRight
-                        verticalAlignment: Text.AlignVCenter
-                        Layout.minimumWidth: networkRates.arrowWidth
-                        Layout.preferredWidth: networkRates.arrowWidth
-                        Layout.maximumWidth: networkRates.arrowWidth
-                        Layout.preferredHeight: networkRates.rowHeight
-                    }
-
-                    Controls.Label {
-                        text: compact.networkRateNumber(rootItem.sensorText(rootItem.networkDownloadSensor))
-                        color: Kirigami.Theme.textColor
-                        elide: Text.ElideRight
-                        font.pixelSize: networkRates.rateFontSize
-                        font.features: { "tnum": 1 }
-                        horizontalAlignment: Text.AlignRight
-                        verticalAlignment: Text.AlignVCenter
-                        leftPadding: networkRates.valueGap
-                        Layout.minimumWidth: networkRates.valueSlotWidth
-                        Layout.preferredWidth: networkRates.valueSlotWidth
-                        Layout.maximumWidth: networkRates.valueSlotWidth
-                        Layout.preferredHeight: networkRates.rowHeight
-                    }
-
-                    Controls.Label {
-                        text: compact.networkRateUnit(rootItem.sensorText(rootItem.networkDownloadSensor))
-                        color: Kirigami.Theme.textColor
-                        elide: Text.ElideRight
-                        font.pixelSize: networkRates.rateFontSize
-                        horizontalAlignment: Text.AlignRight
-                        verticalAlignment: Text.AlignVCenter
-                        leftPadding: networkRates.unitGap
-                        Layout.minimumWidth: networkRates.unitSlotWidth
-                        Layout.preferredWidth: networkRates.unitSlotWidth
-                        Layout.maximumWidth: networkRates.unitSlotWidth
-                        Layout.preferredHeight: networkRates.rowHeight
-                    }
+                Local.NetworkRates {
+                    visible: moduleTarget.modelData.id === "network"
+                    uploadText: compact.rootItem.sensorText(compact.rootItem.networkUploadSensor)
+                    downloadText: compact.rootItem.sensorText(compact.rootItem.networkDownloadSensor)
+                    accentColor: moduleTarget.accentColor
                 }
             }
+        }
+
+        Controls.ToolButton {
+            visible: compact.rootItem.activeCount() === 0
+            text: i18n("KStats")
+            icon.name: "utilities-system-monitor"
+            display: Controls.AbstractButton.IconOnly
+            onClicked: compact.rootItem.expanded = !compact.rootItem.expanded
+            Controls.ToolTip.visible: hovered
+            Controls.ToolTip.text: text
         }
     }
 }

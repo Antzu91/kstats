@@ -1,6 +1,7 @@
 import QtQuick
 
 import org.kde.kirigami as Kirigami
+import "TimedHistory.js" as TimedHistory
 
 Canvas {
     id: spark
@@ -9,6 +10,13 @@ Canvas {
     property int sampleLimit: 36
     property var samples: []
     property bool autoSample: true
+    property bool dataAvailable: true
+    property string historyKey: ""
+    property int sampleInterval: 1000
+    readonly property int historyDuration: 60000
+    property var timedSamples: []
+    property real sampledAt: 0
+    property bool initialized: false
     property color lineColor: "white"
     property bool showFill: false
     property bool showGrid: false
@@ -19,23 +27,38 @@ Canvas {
 
     antialiasing: true
 
-    onSampleValueChanged: if (autoSample) addSample(sampleValue)
     onSamplesChanged: requestPaint()
-    Component.onCompleted: if (autoSample) addSample(sampleValue)
+    onTimedSamplesChanged: requestPaint()
+    onLineColorChanged: requestPaint()
+    onHistoryKeyChanged: resetHistory()
+    onVisibleChanged: resetHistory()
+    onAutoSampleChanged: resetHistory()
+    onDataAvailableChanged: collectSample()
+    onSampleIntervalChanged: collectSample()
+    Component.onCompleted: {
+        initialized = true;
+        resetHistory();
+    }
 
-    function addSample(value) {
-        var numeric = Number(value);
-        if (!isFinite(numeric)) {
-            numeric = 0;
-        }
+    function resetHistory() {
+        timedSamples = [];
+        collectSample();
+    }
 
-        var next = samples.slice(0);
-        next.push(Math.max(0, Math.min(100, numeric)));
-        while (next.length > sampleLimit) {
-            next.shift();
+    function collectSample() {
+        if (!initialized || !autoSample || !visible) {
+            return;
         }
-        samples = next;
-        requestPaint();
+        sampledAt = Date.now();
+        timedSamples = TimedHistory.append(timedSamples, sampleValue, dataAvailable,
+            sampledAt, Math.max(100, sampleInterval), historyDuration);
+    }
+
+    Timer {
+        interval: Math.max(100, spark.sampleInterval)
+        repeat: true
+        running: spark.initialized && spark.autoSample && spark.visible
+        onTriggered: spark.collectSample()
     }
 
     onWidthChanged: requestPaint()
@@ -49,7 +72,7 @@ Canvas {
         var ctx = getContext("2d");
         ctx.reset();
 
-        if (samples.length < 2 || width <= 0 || height <= 0) {
+        if (width <= 0 || height <= 0) {
             return;
         }
 
@@ -68,7 +91,6 @@ Canvas {
         var plotTop = showScale ? 2 : 0;
         var plotWidth = Math.max(1, width - plotLeft);
         var plotHeight = Math.max(1, height - (showScale ? 4 : 0));
-        var step = plotWidth / Math.max(1, sampleLimit - 1);
 
         if (showGrid || showScale) {
             ctx.lineWidth = 1;
@@ -105,38 +127,51 @@ Canvas {
             }
         }
 
-        if (showFill) {
-            ctx.fillStyle = lineColor;
-            ctx.globalAlpha = 0.16;
-            ctx.beginPath();
-            ctx.moveTo(plotLeft + plotWidth - (samples.length - 1) * step, plotTop + plotHeight);
-            for (var fillIndex = 0; fillIndex < samples.length; fillIndex++) {
-                var fillX = plotLeft + plotWidth - (samples.length - 1 - fillIndex) * step;
-                var fillY = plotTop + plotHeight - (samples[fillIndex] / 100 * plotHeight);
-                ctx.lineTo(fillX, fillY);
-            }
-            ctx.lineTo(plotLeft + plotWidth, plotTop + plotHeight);
-            ctx.closePath();
-            ctx.fill();
+        var paths;
+        if (autoSample) {
+            paths = TimedHistory.segments(timedSamples, sampledAt, historyDuration);
+        } else {
+            // External histories use sample indices rather than timestamps.
+            paths = [samples.map(function(value, index) {
+                return { x: 1 - (samples.length - 1 - index) / Math.max(1, sampleLimit - 1), value: value };
+            })];
         }
 
         ctx.lineWidth = 2;
         ctx.lineJoin = "round";
         ctx.lineCap = "round";
         ctx.strokeStyle = lineColor;
-        ctx.globalAlpha = 0.9;
-        ctx.beginPath();
-
-        for (var i = 0; i < samples.length; i++) {
-            var x = plotLeft + plotWidth - (samples.length - 1 - i) * step;
-            var y = plotTop + plotHeight - (samples[i] / 100 * plotHeight);
-            if (i === 0) {
-                ctx.moveTo(x, y);
-            } else {
-                ctx.lineTo(x, y);
+        ctx.fillStyle = lineColor;
+        for (var pathIndex = 0; pathIndex < paths.length; pathIndex++) {
+            var path = paths[pathIndex];
+            if (path.length < 2) {
+                continue;
             }
-        }
+            if (showFill) {
+                ctx.globalAlpha = 0.16;
+                ctx.beginPath();
+                ctx.moveTo(plotLeft + path[0].x * plotWidth, plotTop + plotHeight);
+                for (var fillIndex = 0; fillIndex < path.length; fillIndex++) {
+                    ctx.lineTo(plotLeft + path[fillIndex].x * plotWidth,
+                        plotTop + plotHeight - path[fillIndex].value / 100 * plotHeight);
+                }
+                ctx.lineTo(plotLeft + path[path.length - 1].x * plotWidth, plotTop + plotHeight);
+                ctx.closePath();
+                ctx.fill();
+            }
 
-        ctx.stroke();
+            ctx.globalAlpha = 0.9;
+            ctx.beginPath();
+            for (var i = 0; i < path.length; i++) {
+                var x = plotLeft + path[i].x * plotWidth;
+                var y = plotTop + plotHeight - path[i].value / 100 * plotHeight;
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            ctx.stroke();
+        }
     }
 }

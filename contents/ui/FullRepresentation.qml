@@ -65,44 +65,17 @@ Controls.Pane {
                 anchors.margins: Kirigami.Units.smallSpacing / 2
                 spacing: Kirigami.Units.smallSpacing / 2
 
-                Local.TabPill {
-                    checked: full.currentTab === 0
-                    iconName: "cpu"
-                    accentColor: Kirigami.Theme.positiveTextColor
-                    text: i18nc("@title:tab", "CPU")
-                    onClicked: full.rootItem.selectTab(0)
-                }
+                Repeater {
+                    model: full.rootItem.modules.ordered
 
-                Local.TabPill {
-                    checked: full.currentTab === 1
-                    iconName: "memory"
-                    accentColor: Kirigami.Theme.focusColor
-                    text: i18nc("@title:tab", "RAM")
-                    onClicked: full.rootItem.selectTab(1)
-                }
-
-                Local.TabPill {
-                    checked: full.currentTab === 2
-                    iconName: "video-display"
-                    accentColor: Kirigami.Theme.negativeTextColor
-                    text: i18nc("@title:tab", "GPU")
-                    onClicked: full.rootItem.selectTab(2)
-                }
-
-                Local.TabPill {
-                    checked: full.currentTab === 4
-                    iconName: "drive-harddisk"
-                    accentColor: Kirigami.Theme.neutralTextColor
-                    text: i18nc("@title:tab", "DISK")
-                    onClicked: full.rootItem.selectTab(4)
-                }
-
-                Local.TabPill {
-                    checked: full.currentTab === 3
-                    iconName: "network-wired"
-                    accentColor: Kirigami.Theme.visitedLinkColor
-                    text: i18nc("@title:tab", "NET")
-                    onClicked: full.rootItem.selectTab(3)
+                    Local.TabPill {
+                        required property var modelData
+                        checked: full.currentTab === modelData.tabId
+                        iconName: modelData.icon
+                        accentColor: modelData.color
+                        text: modelData.label
+                        onClicked: full.rootItem.selectTab(modelData.tabId)
+                    }
                 }
             }
         }

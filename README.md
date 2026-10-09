@@ -42,9 +42,48 @@ plasmoidviewer --applet .
 For KDE store:
 https://www.opendesktop.org/p/2364289/
 
+## Panel presentation
+
+Each CPU, RAM, GPU, and disk module can show a **Number**, **Graph**,
+**Number + graph**, or **Bar**. Graph and bar modes omit the numeric value;
+hover over a module to read its current value. Disk always represents capacity
+used, not disk activity. Network shows separate upload and download rates.
+Unavailable percentage readings show `N/A`, including in graph and bar modes.
+
+The default presentations are number + graph for CPU, RAM, and GPU; a bar for
+disk; and both network rates. Labels are visible by default. GPU visibility
+is off by default. Existing sensor selections and module visibility are preserved.
+
+In widget settings, each module has its own visibility and label controls.
+Use the up/down buttons to set the shared panel and popup tab order. Hiding a
+panel module never removes its popup tab. If every panel module is hidden, a
+System Monitor icon still opens the popup. Default order: CPU, RAM, GPU, disk,
+network. Panel width defaults to **Automatic**; choose a pixel width to fit the
+strip into a fixed space (content scales down when necessary).
+
+Automatically collected sparklines show the last **60 seconds**, sampled on the
+configured update interval even when readings stay constant. Changing the
+interval preserves elapsed-time spacing. Unavailable data and delayed timer
+callbacks create gaps rather than zeroes or invented readings. Graphs collect
+while visible and start a new history after being hidden or changing sensors.
+Popup memory and network charts use their own sample-count windows.
+
+## Validation
+
+Run the history and module-order tests with Node.js:
+
+```sh
+node --test tests/*.test.cjs
+```
+
+CI also runs QML lint, configuration XML, AppStream metadata, and package
+installation checks. For visual verification, preview with `plasmoidviewer`,
+exercise each presentation, labels, order and hidden modules, then check automatic
+and fixed widths, light/dark themes, unavailable sensors, and settings persistence.
+
 ## GPU monitoring
 
-Enable `GPU: Show in bar` in the widget settings and choose a `Panel GPU`.
+Enable `GPU: Show in panel` in the widget settings and choose a `Panel GPU`.
 The panel shows utilization and a sparkline. Click it to open usage, memory,
 and temperature readings for the detected GPUs. GPU display is off by default.
 

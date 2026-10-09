@@ -10,6 +10,10 @@ import "." as Local
 PlasmoidItem {
     id: root
 
+    readonly property Local.ModuleDefinitions modules: Local.ModuleDefinitions {
+        order: root.configString(Plasmoid.configuration.moduleOrder)
+    }
+
     property int sensorUpdateRate: Math.max(500, Plasmoid.configuration.updateRateLimit)
 
     property alias cpuUsageSensor: cpuUsage
@@ -59,6 +63,26 @@ PlasmoidItem {
 
     function gpuName(device) {
         return gpuDiscovery.deviceName(device);
+    }
+
+    function panelSensor(id) {
+        if (id === "cpu") {
+            return cpuUsage;
+        }
+        if (id === "memory") {
+            return memoryUsage;
+        }
+        if (id === "disk") {
+            return diskUsage;
+        }
+        return null;
+    }
+
+    function sensorAvailable(sensor) {
+        return sensor && sensor.enabled && sensor.sensorId.length > 0
+            && sensor.status === Sensors.Sensor.Ready
+            && sensor.value !== undefined && sensor.value !== null && sensor.value !== ""
+            && isFinite(Number(sensor.value));
     }
 
     function sensorText(sensor) {
@@ -177,7 +201,7 @@ PlasmoidItem {
         count += Plasmoid.configuration.showGpu ? 1 : 0;
         count += Plasmoid.configuration.showDisk ? 1 : 0;
         count += Plasmoid.configuration.showNetwork ? 1 : 0;
-        return Math.max(1, count);
+        return count;
     }
 
     function selectTab(tabIndex) {

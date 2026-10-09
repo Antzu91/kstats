@@ -31,6 +31,7 @@ jobs:
             libksysguard \
             libplasma \
             libxml2 \
+            nodejs \
             plasma5support \
             qt6-declarative
 
@@ -40,6 +41,9 @@ jobs:
           kpackagetool6 --version
           appstreamcli --version
           xmllint --version | head -n 1
+
+      - name: Test history and module order
+        run: node --test tests/*.test.cjs
 
       - name: Lint QML
         run: /usr/lib/qt6/bin/qmllint --unqualified disable contents/ui/*.qml contents/config/config.qml

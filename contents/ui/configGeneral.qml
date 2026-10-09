@@ -11,12 +11,12 @@ KCM.SimpleKCM {
 
     property alias cfg_updateRateLimit: updateRateLimit.value
     property alias cfg_compactBarLength: compactBarLength.value
-    property alias cfg_showCpu: showCpu.checked
-    property alias cfg_showMemory: showMemory.checked
-    property alias cfg_showGpu: showGpu.checked
+    property bool cfg_showCpu
+    property bool cfg_showMemory
+    property bool cfg_showGpu
     property string cfg_gpuDeviceId: "gpu0"
-    property alias cfg_showDisk: showDisk.checked
-    property alias cfg_showNetwork: showNetwork.checked
+    property bool cfg_showDisk
+    property bool cfg_showNetwork
     property alias cfg_cpuSensorId: cpuSensorId.text
     property alias cfg_memorySensorId: memorySensorId.text
     property alias cfg_diskSensorId: diskSensorId.text
@@ -42,6 +42,42 @@ KCM.SimpleKCM {
     property string cfg_diskWriteSensorIdDefault
     property string cfg_networkDownloadSensorIdDefault
     property string cfg_networkUploadSensorIdDefault
+
+    property string cfg_moduleOrder
+    property string cfg_moduleOrderDefault
+    property bool cfg_cpuShowLabel
+    property bool cfg_cpuShowLabelDefault
+    property string cfg_cpuPresentation
+    property string cfg_cpuPresentationDefault
+    property bool cfg_memoryShowLabel
+    property bool cfg_memoryShowLabelDefault
+    property string cfg_memoryPresentation
+    property string cfg_memoryPresentationDefault
+    property bool cfg_gpuShowLabel
+    property bool cfg_gpuShowLabelDefault
+    property string cfg_gpuPresentation
+    property string cfg_gpuPresentationDefault
+    property bool cfg_diskShowLabel
+    property bool cfg_diskShowLabelDefault
+    property string cfg_diskPresentation
+    property string cfg_diskPresentationDefault
+    property bool cfg_networkShowLabel
+    property bool cfg_networkShowLabelDefault
+
+    readonly property Local.ModuleDefinitions modules: Local.ModuleDefinitions {
+        order: root.cfg_moduleOrder
+    }
+
+    function moveModule(index, direction) {
+        var ids = modules.ordered.map(function(module) { return module.id; });
+        var destination = index + direction;
+        if (destination < 0 || destination >= ids.length) {
+            return;
+        }
+        var moved = ids.splice(index, 1)[0];
+        ids.splice(destination, 0, moved);
+        cfg_moduleOrder = ids.join(",");
+    }
 
     property Local.GpuDiscovery gpuDiscovery: Local.GpuDiscovery {}
 
@@ -79,13 +115,13 @@ KCM.SimpleKCM {
 
         Controls.SpinBox {
             id: compactBarLength
-            Kirigami.FormData.label: i18nc("@label", "Bar length:")
+            Kirigami.FormData.label: i18nc("@label", "Panel width:")
             from: 0
             to: 4000
             stepSize: 8
             textFromValue: function(value) {
                 if (value === 0) {
-                    return i18nc("@label adaptive bar length", "Adaptive");
+                    return i18nc("@label adaptive bar length", "Automatic");
                 }
                 return i18nc("@label pixels", "%1 px", value);
             }
@@ -101,29 +137,94 @@ KCM.SimpleKCM {
             Layout.fillWidth: true
         }
 
-        Controls.CheckBox {
-            id: showCpu
-            Kirigami.FormData.label: i18nc("@label", "CPU:")
-            text: i18nc("@option:check", "Show in bar")
+        Controls.Label {
+            text: i18nc("@info", "Order also applies to popup tabs. Hidden panel modules remain available in the popup.")
+            wrapMode: Text.WordWrap
+            Layout.fillWidth: true
         }
 
-        Controls.CheckBox {
-            id: showMemory
-            Kirigami.FormData.label: i18nc("@label", "Memory:")
-            text: i18nc("@option:check", "Show in bar")
-        }
+        // Nest delegates so FormLayout cannot move them past later sections.
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: Kirigami.Units.largeSpacing
 
-        Controls.CheckBox {
-            id: showGpu
-            Kirigami.FormData.label: i18nc("@label", "GPU:")
-            text: i18nc("@option:check", "Show in bar")
+            Repeater {
+                model: root.modules.ordered
+
+                ColumnLayout {
+                    id: moduleSettings
+                    required property var modelData
+                    required property int index
+                    Layout.fillWidth: true
+                    spacing: Kirigami.Units.smallSpacing
+
+                    Controls.Label {
+                        text: moduleSettings.modelData.label
+                        font.weight: Font.DemiBold
+                    }
+
+                    RowLayout {
+                        Controls.CheckBox {
+                            text: i18nc("@option:check", "Show in panel")
+                            checked: Boolean(root["cfg_" + moduleSettings.modelData.visibilityKey])
+                            onToggled: root["cfg_" + moduleSettings.modelData.visibilityKey] = checked
+                        }
+                        Controls.CheckBox {
+                            text: i18nc("@option:check", "Show label")
+                            checked: Boolean(root["cfg_" + moduleSettings.modelData.id + "ShowLabel"])
+                            onToggled: root["cfg_" + moduleSettings.modelData.id + "ShowLabel"] = checked
+                        }
+                        Controls.ToolButton {
+                            icon.name: "go-up"
+                            text: i18nc("@action", "Move %1 earlier", moduleSettings.modelData.label)
+                            display: Controls.AbstractButton.IconOnly
+                            enabled: moduleSettings.index > 0
+                            onClicked: root.moveModule(moduleSettings.index, -1)
+                            Controls.ToolTip.visible: hovered
+                            Controls.ToolTip.text: text
+                        }
+                        Controls.ToolButton {
+                            icon.name: "go-down"
+                            text: i18nc("@action", "Move %1 later", moduleSettings.modelData.label)
+                            display: Controls.AbstractButton.IconOnly
+                            enabled: moduleSettings.index < root.modules.ordered.length - 1
+                            onClicked: root.moveModule(moduleSettings.index, 1)
+                            Controls.ToolTip.visible: hovered
+                            Controls.ToolTip.text: text
+                        }
+                    }
+
+                    Controls.ComboBox {
+                        visible: moduleSettings.modelData.id !== "network"
+                        Layout.fillWidth: true
+                        model: [
+                            { key: "number", text: i18nc("@item:inlistbox", "Number") },
+                            { key: "graph", text: i18nc("@item:inlistbox", "Graph") },
+                            { key: "numberGraph", text: i18nc("@item:inlistbox", "Number + graph") },
+                            { key: "bar", text: i18nc("@item:inlistbox", "Bar") }
+                        ]
+                        textRole: "text"
+                        valueRole: "key"
+                        currentIndex: model.findIndex(function(mode) {
+                            return mode.key === root["cfg_" + moduleSettings.modelData.id + "Presentation"];
+                        })
+                        onActivated: root["cfg_" + moduleSettings.modelData.id + "Presentation"] = currentValue
+                        Accessible.name: i18nc("@label", "%1 presentation", moduleSettings.modelData.label)
+                    }
+                    Controls.Label {
+                        visible: moduleSettings.modelData.id === "network"
+                        text: i18nc("@label", "Upload and download rates")
+                        color: Kirigami.Theme.disabledTextColor
+                    }
+                }
+            }
         }
 
         Controls.ComboBox {
             Kirigami.FormData.label: i18nc("@label", "Panel GPU:")
             Layout.fillWidth: true
             Layout.minimumWidth: Kirigami.Units.gridUnit * 12
-            enabled: showGpu.checked
+            enabled: root.cfg_showGpu
             Controls.ToolTip.visible: hovered
             Controls.ToolTip.text: currentText
             model: root.gpuChoices
@@ -133,18 +234,6 @@ KCM.SimpleKCM {
                 return device.key === root.cfg_gpuDeviceId;
             })
             onActivated: root.cfg_gpuDeviceId = currentValue
-        }
-
-        Controls.CheckBox {
-            id: showDisk
-            Kirigami.FormData.label: i18nc("@label", "Disk:")
-            text: i18nc("@option:check", "Show in bar")
-        }
-
-        Controls.CheckBox {
-            id: showNetwork
-            Kirigami.FormData.label: i18nc("@label", "Network:")
-            text: i18nc("@option:check", "Show in bar")
         }
 
         Kirigami.Separator {

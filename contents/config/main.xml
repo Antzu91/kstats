@@ -11,6 +11,36 @@
         <entry name="compactBarLength" type="Int">
             <default>0</default>
         </entry>
+        <entry name="moduleOrder" type="String">
+            <default>cpu,memory,gpu,disk,network</default>
+        </entry>
+        <entry name="cpuShowLabel" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="cpuPresentation" type="String">
+            <default>numberGraph</default>
+        </entry>
+        <entry name="memoryShowLabel" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="memoryPresentation" type="String">
+            <default>numberGraph</default>
+        </entry>
+        <entry name="gpuShowLabel" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="gpuPresentation" type="String">
+            <default>numberGraph</default>
+        </entry>
+        <entry name="diskShowLabel" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="diskPresentation" type="String">
+            <default>bar</default>
+        </entry>
+        <entry name="networkShowLabel" type="Bool">
+            <default>true</default>
+        </entry>
         <entry name="showCpu" type="Bool">
             <default>true</default>
         </entry>
