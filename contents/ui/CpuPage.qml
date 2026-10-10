@@ -325,7 +325,8 @@ Item {
                 Local.RingGauge {
                     Layout.preferredWidth: Kirigami.Units.gridUnit * 3.6
                     Layout.preferredHeight: Kirigami.Units.gridUnit * 3.6
-                    value: page.rootItem.sensorPercent(page.rootItem.cpuUsageSensor)
+                    value: page.rootItem.cpuUsageMonitor.percent ?? 0
+                    dataAvailable: page.rootItem.cpuUsageMonitor.available
                     label: i18nc("@label", "CPU")
                     accentColor: Kirigami.Theme.positiveTextColor
                 }
@@ -344,7 +345,7 @@ Item {
                         }
 
                         Controls.Label {
-                            text: page.rootItem.sensorText(page.rootItem.cpuUsageSensor)
+                            text: page.rootItem.cpuUsageMonitor.text
                             color: Kirigami.Theme.positiveTextColor
                             font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 1.2
                             font.weight: Font.DemiBold

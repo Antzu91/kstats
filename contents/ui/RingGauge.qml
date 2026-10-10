@@ -7,6 +7,7 @@ Item {
     id: root
 
     property real value: 0
+    property bool dataAvailable: true
     property string label: ""
     property color accentColor: Kirigami.Theme.focusColor
     property color trackColor: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.14)
@@ -16,6 +17,7 @@ Item {
     implicitHeight: implicitWidth
 
     onValueChanged: canvas.requestPaint()
+    onDataAvailableChanged: canvas.requestPaint()
     onAccentColorChanged: canvas.requestPaint()
     onTrackColorChanged: canvas.requestPaint()
     onWidthChanged: canvas.requestPaint()
@@ -40,7 +42,7 @@ Item {
             var centerY = height / 2;
             var radius = Math.max(1, (size - root.lineWidth) / 2 - 1);
             var startAngle = -Math.PI / 2;
-            var endAngle = startAngle + Math.PI * 2 * Math.max(0, Math.min(100, root.value)) / 100;
+            var endAngle = startAngle + Math.PI * 2 * Math.max(0, Math.min(100, root.dataAvailable ? root.value : 0)) / 100;
 
             ctx.lineWidth = root.lineWidth;
             ctx.lineCap = "round";
@@ -64,7 +66,9 @@ Item {
 
         Controls.Label {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: i18nc("@label percent value", "%1%", Math.round(Math.max(0, Math.min(100, root.value))))
+            text: root.dataAvailable
+                ? i18nc("@label percent value", "%1%", Math.round(Math.max(0, Math.min(100, root.value))))
+                : i18nc("@info:status", "N/A")
             color: Kirigami.Theme.textColor
             font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 1.25
             font.weight: Font.DemiBold

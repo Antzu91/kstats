@@ -108,8 +108,10 @@ Item {
 
             Local.BarStat {
                 label: i18nc("@label", "CPU")
-                value: rootItem.sensorText(rootItem.cpuUsageSensor)
-                percent: rootItem.sensorPercent(rootItem.cpuUsageSensor)
+                value: rootItem.cpuUsageMonitor.text
+                percent: rootItem.cpuUsageMonitor.percent ?? 0
+                dataAvailable: rootItem.cpuUsageMonitor.available
+                historyKey: rootItem.cpuUsageMonitor.sourceKey
                 accentColor: Kirigami.Theme.positiveTextColor
             }
         }
@@ -121,8 +123,10 @@ Item {
 
             Local.BarStat {
                 label: i18nc("@label", "MEM")
-                value: rootItem.sensorText(rootItem.memoryUsageSensor)
-                percent: rootItem.sensorPercent(rootItem.memoryUsageSensor)
+                value: rootItem.memoryUsageMonitor.text
+                percent: rootItem.memoryUsageMonitor.percent ?? 0
+                dataAvailable: rootItem.memoryUsageMonitor.available
+                historyKey: rootItem.memoryUsageMonitor.sourceKey
                 accentColor: Kirigami.Theme.focusColor
             }
         }
@@ -138,7 +142,7 @@ Item {
                     ? i18nc("@label GPU utilization percentage", "%1%", Math.round(rootItem.gpuUsageMonitor.percent))
                     : rootItem.gpuUsageMonitor.text
                 valueWidthSample: i18nc("@label GPU utilization percentage", "%1%", 100)
-                percent: rootItem.gpuUsageMonitor.percent
+                percent: rootItem.gpuUsageMonitor.percent ?? 0
                 dataAvailable: rootItem.gpuUsageMonitor.available
                 historyKey: rootItem.gpuDeviceId
                 accentColor: Kirigami.Theme.negativeTextColor
@@ -152,8 +156,10 @@ Item {
 
             Local.BarStat {
                 label: i18nc("@label", "DSK")
-                value: rootItem.sensorText(rootItem.diskUsageSensor)
-                percent: rootItem.sensorPercent(rootItem.diskUsageSensor)
+                value: rootItem.diskUsageMonitor.text
+                percent: rootItem.diskUsageMonitor.percent ?? 0
+                dataAvailable: rootItem.diskUsageMonitor.available
+                historyKey: rootItem.diskUsageMonitor.sourceKey
                 accentColor: Kirigami.Theme.neutralTextColor
                 previewMode: "bar"
             }
@@ -242,7 +248,7 @@ Item {
                     }
 
                     Controls.Label {
-                        text: compact.networkRateNumber(rootItem.sensorText(rootItem.networkUploadSensor))
+                        text: compact.networkRateNumber(rootItem.networkUploadMonitor.text)
                         color: Kirigami.Theme.textColor
                         elide: Text.ElideRight
                         font.pixelSize: networkRates.rateFontSize
@@ -257,7 +263,7 @@ Item {
                     }
 
                     Controls.Label {
-                        text: compact.networkRateUnit(rootItem.sensorText(rootItem.networkUploadSensor))
+                        text: compact.networkRateUnit(rootItem.networkUploadMonitor.text)
                         color: Kirigami.Theme.textColor
                         elide: Text.ElideRight
                         font.pixelSize: networkRates.rateFontSize
@@ -290,7 +296,7 @@ Item {
                     }
 
                     Controls.Label {
-                        text: compact.networkRateNumber(rootItem.sensorText(rootItem.networkDownloadSensor))
+                        text: compact.networkRateNumber(rootItem.networkDownloadMonitor.text)
                         color: Kirigami.Theme.textColor
                         elide: Text.ElideRight
                         font.pixelSize: networkRates.rateFontSize
@@ -305,7 +311,7 @@ Item {
                     }
 
                     Controls.Label {
-                        text: compact.networkRateUnit(rootItem.sensorText(rootItem.networkDownloadSensor))
+                        text: compact.networkRateUnit(rootItem.networkDownloadMonitor.text)
                         color: Kirigami.Theme.textColor
                         elide: Text.ElideRight
                         font.pixelSize: networkRates.rateFontSize

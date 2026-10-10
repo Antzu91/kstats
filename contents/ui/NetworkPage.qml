@@ -14,8 +14,8 @@ Item {
     property string publicIp: i18nc("@info:status", "N/A")
     property string networkName: i18nc("@info:status", "N/A")
     property string physicalAddress: i18nc("@info:status", "N/A")
-    property real downloadRate: 0
-    property real uploadRate: 0
+    property var downloadRate: null
+    property var uploadRate: null
     property real lastRxBytes: -1
     property real lastTxBytes: -1
     property real lastSampleTime: 0
@@ -27,7 +27,10 @@ Item {
     Layout.fillHeight: true
 
     function formatRate(bytesPerSecond) {
-        var value = Math.max(0, Number(bytesPerSecond) || 0);
+        if (bytesPerSecond === null || !isFinite(Number(bytesPerSecond))) {
+            return i18nc("@info:status", "N/A");
+        }
+        var value = Math.max(0, Number(bytesPerSecond));
         if (value >= 1048576) {
             return i18nc("@label network megabytes per second", "%1 MB/s", (value / 1048576).toFixed(value >= 10485760 ? 1 : 2));
         }
@@ -109,9 +112,20 @@ Item {
         });
     }
 
+    function clearRates() {
+        downloadRate = null;
+        uploadRate = null;
+        lastRxBytes = -1;
+        lastTxBytes = -1;
+        lastSampleTime = 0;
+    }
+
+    onInterfaceNameChanged: clearRates()
+
     function refreshNetwork() {
         netdevCommand.exec("cat /proc/net/dev", function(result) {
             if (result.exitCode !== 0) {
+                page.clearRates();
                 return;
             }
 
@@ -164,6 +178,7 @@ Item {
             }
 
             if (!selected) {
+                page.clearRates();
                 return;
             }
 

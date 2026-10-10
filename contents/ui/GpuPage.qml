@@ -46,6 +46,7 @@ Item {
 
                     Local.GpuSensor {
                         id: usageSensor
+                        valueMode: "percent"
 
                         active: page.rootItem.gpuDetailsVisible && gpuCard.modelData.key !== page.rootItem.gpuDeviceId
                         sensorId: gpuCard.modelData.usageSensorId
@@ -54,6 +55,7 @@ Item {
 
                     Local.GpuSensor {
                         id: memorySensor
+                        valueMode: "percent"
 
                         active: page.rootItem.gpuDetailsVisible
                         sensorId: gpuCard.modelData.memorySensorId
@@ -103,7 +105,7 @@ Item {
                             showProgress: gpuCard.usage.available
                             secondaryValue: i18nc("@label", "Graphics processor usage")
                             sensorId: usageSensor.sensorId
-                            percent: gpuCard.usage.percent
+                            percent: gpuCard.usage.percent ?? 0
                             accentColor: Kirigami.Theme.negativeTextColor
                         }
 
@@ -116,7 +118,7 @@ Item {
                             showProgress: memorySensor.available
                             secondaryValue: i18nc("@label", "Graphics memory used")
                             sensorId: memorySensor.sensorId
-                            percent: memorySensor.percent
+                            percent: memorySensor.percent ?? 0
                             accentColor: Kirigami.Theme.focusColor
                         }
 
@@ -129,7 +131,7 @@ Item {
                             showProgress: temperatureSensor.available
                             secondaryValue: i18nc("@label", "Graphics processor temperature")
                             sensorId: temperatureSensor.sensorId
-                            percent: temperatureSensor.percent
+                            percent: temperatureSensor.percent ?? 0
                             accentColor: Kirigami.Theme.neutralTextColor
                         }
                     }

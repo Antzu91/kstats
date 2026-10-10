@@ -22,7 +22,8 @@ Item {
         compressedText: i18nc("@info:status", "N/A"),
         swapText: i18nc("@info:status", "N/A")
     })
-    property real displayPercent: memoryInfo.valid ? memoryInfo.usedPercent : rootItem.sensorPercent(rootItem.memoryUsageSensor)
+    property var displayPercent: memoryInfo.valid ? memoryInfo.usedPercent : rootItem.memoryUsageMonitor.percent
+    readonly property bool dataAvailable: displayPercent !== null
 
     clip: true
     Layout.fillWidth: true
@@ -47,7 +48,7 @@ Item {
             if (result.exitCode !== 0) {
                 page.memoryInfo = {
                     valid: false,
-                    usedPercent: page.rootItem.sensorPercent(page.rootItem.memoryUsageSensor),
+                    usedPercent: page.rootItem.memoryUsageMonitor.percent,
                     swapPercent: 0,
                     totalText: i18nc("@info:status", "N/A"),
                     usedText: i18nc("@info:status", "N/A"),
@@ -103,7 +104,7 @@ Item {
             var swapTotal = page.value(values, "SwapTotal");
             var swapFree = page.value(values, "SwapFree");
             var swapUsed = Math.max(0, swapTotal - swapFree);
-            var percent = total > 0 ? used / total * 100 : page.rootItem.sensorPercent(page.rootItem.memoryUsageSensor);
+            var percent = total > 0 ? used / total * 100 : page.rootItem.memoryUsageMonitor.percent;
             var swapPercent = swapTotal > 0 ? swapUsed / swapTotal * 100 : 0;
 
             page.memoryInfo = {
@@ -193,7 +194,8 @@ Item {
                 Local.RingGauge {
                     Layout.preferredWidth: Kirigami.Units.gridUnit * 3.6
                     Layout.preferredHeight: Kirigami.Units.gridUnit * 3.6
-                    value: page.displayPercent
+                    value: page.displayPercent ?? 0
+                    dataAvailable: page.dataAvailable
                     label: i18nc("@label", "RAM")
                     accentColor: Kirigami.Theme.focusColor
                 }
@@ -212,7 +214,9 @@ Item {
                         }
 
                         Controls.Label {
-                            text: i18nc("@label percent value", "%1%", page.displayPercent.toFixed(1))
+                            text: page.dataAvailable
+                                ? i18nc("@label percent value", "%1%", page.displayPercent.toFixed(1))
+                                : page.rootItem.memoryUsageMonitor.text
                             color: Kirigami.Theme.focusColor
                             font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 1.2
                             font.weight: Font.DemiBold

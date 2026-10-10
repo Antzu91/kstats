@@ -12,22 +12,31 @@ PlasmoidItem {
 
     property int sensorUpdateRate: Math.max(500, Plasmoid.configuration.updateRateLimit)
 
-    property alias cpuUsageSensor: cpuUsage
+    readonly property var cpuUsageSensor: cpuUsage.sensor
+    property alias cpuUsageMonitor: cpuUsage
     property alias cpuCountSensor: cpuCount
     property alias cpuCoreCountSensor: cpuCoreCount
-    property alias memoryUsageSensor: memoryUsage
-    property alias diskUsageSensor: diskUsage
+    readonly property var memoryUsageSensor: memoryUsage.sensor
+    property alias memoryUsageMonitor: memoryUsage
+    readonly property var diskUsageSensor: diskUsage.sensor
+    property alias diskUsageMonitor: diskUsage
     property alias diskReadSensor: diskRead
     property alias diskWriteSensor: diskWrite
-    property alias networkDownloadSensor: networkDownload
-    property alias networkUploadSensor: networkUpload
+    readonly property var networkDownloadSensor: networkDownload.sensor
+    property alias networkDownloadMonitor: networkDownload
+    readonly property var networkUploadSensor: networkUpload.sensor
+    property alias networkUploadMonitor: networkUpload
     readonly property var gpuDevices: gpuDiscovery.devices
     readonly property string gpuDeviceId: root.configString(Plasmoid.configuration.gpuDeviceId)
     readonly property var selectedGpu: gpuDevices.find(function(device) {
         return device.key === root.gpuDeviceId;
     }) || null
-    readonly property bool gpuDetailsVisible: selectedTab === 2
-        && (expanded || Plasmoid.formFactor === PlasmaCore.Types.Planar)
+    readonly property bool detailsVisible: expanded || Plasmoid.formFactor === PlasmaCore.Types.Planar
+    readonly property bool cpuDetailsVisible: detailsVisible && selectedTab === 0
+    readonly property bool memoryDetailsVisible: detailsVisible && selectedTab === 1
+    readonly property bool gpuDetailsVisible: detailsVisible && selectedTab === 2
+    readonly property bool networkDetailsVisible: detailsVisible && selectedTab === 3
+    readonly property bool diskDetailsVisible: detailsVisible && selectedTab === 4
     property alias gpuUsageMonitor: gpuUsage
     property int selectedTab: 0
     readonly property int historySampleLimit: 72
@@ -48,11 +57,11 @@ PlasmoidItem {
 
     toolTipMainText: i18n("KStats")
     toolTipSubText: i18n("CPU %1 | Memory %2 | Disk %3 | Down %4 | Up %5",
-        sensorText(cpuUsage),
-        sensorText(memoryUsage),
-        sensorText(diskUsage),
-        sensorText(networkDownload),
-        sensorText(networkUpload))
+        cpuUsage.text,
+        memoryUsage.text,
+        diskUsage.text,
+        networkDownload.text,
+        networkUpload.text)
         + (Plasmoid.configuration.showGpu
             ? i18nc("@info:tooltip GPU name and usage", " | %1: %2", selectedGpu ? gpuName(selectedGpu) : i18n("GPU"), gpuUsage.text)
             : "")
@@ -66,15 +75,10 @@ PlasmoidItem {
             return i18nc("@info:status", "Off");
         }
 
-        if (sensor.formattedValue && sensor.formattedValue.length > 0) {
-            return sensor.formattedValue;
+        if (sensor.status !== Sensors.Sensor.Ready || cpuUsage.numericValue(sensor.value) === null) {
+            return i18nc("@info:status", "N/A");
         }
-
-        if (sensor.value !== undefined && sensor.value !== null && sensor.value !== "") {
-            return String(sensor.value);
-        }
-
-        return i18nc("@info:status", "N/A");
+        return sensor.formattedValue || String(sensor.value);
     }
 
     function configString(value) {
@@ -85,66 +89,18 @@ PlasmoidItem {
     }
 
     function sensorPercent(sensor) {
-        if (!sensor || !sensor.enabled) {
-            return 0;
+        if (!sensor || !sensor.enabled || sensor.status !== Sensors.Sensor.Ready) {
+            return null;
         }
-
-        var value = Number(sensor.value);
-        if (!isFinite(value)) {
-            value = Number.parseFloat(sensor.formattedValue);
-        }
-        if (!isFinite(value)) {
-            return 0;
-        }
-
-        if (sensor.maximum > 0 && sensor.maximum !== 100) {
-            value = value / sensor.maximum * 100;
-        }
-
-        return Math.max(0, Math.min(100, value));
-    }
-
-    function sensorRateValue(sensor) {
-        if (!sensor || !sensor.enabled) {
-            return 0;
-        }
-
-        var value = Number(sensor.value);
-        if (isFinite(value)) {
-            return Math.max(0, value);
-        }
-
-        var text = String(sensor.formattedValue || "").trim();
-        var match = text.match(/^([0-9.]+)\s*([KMGT]?i?B)\/s$/i);
-        if (!match) {
-            return Math.max(0, Number.parseFloat(text) || 0);
-        }
-
-        value = Number(match[1]);
-        if (!isFinite(value)) {
-            return 0;
-        }
-
-        var unit = match[2].toLowerCase();
-        var multiplier = 1;
-        if (unit === "kib" || unit === "kb") {
-            multiplier = 1024;
-        } else if (unit === "mib" || unit === "mb") {
-            multiplier = 1048576;
-        } else if (unit === "gib" || unit === "gb") {
-            multiplier = 1073741824;
-        } else if (unit === "tib" || unit === "tb") {
-            multiplier = 1099511627776;
-        }
-
-        return Math.max(0, value * multiplier);
+        return cpuUsage.percentValue(sensor.value, sensor.maximum);
     }
 
     function appendSample(samples, value, limit, clampPercent) {
-        var numeric = Number(value);
-        if (!isFinite(numeric)) {
-            numeric = 0;
+        // The timestamp store replaces this temporary gap policy in the next slice.
+        if (value === null || value === undefined || !isFinite(Number(value))) {
+            return [];
         }
+        var numeric = Number(value);
         numeric = clampPercent ? Math.max(0, Math.min(100, numeric)) : Math.max(0, numeric);
 
         var next = samples.slice(0);
@@ -157,15 +113,15 @@ PlasmoidItem {
 
     function sampleHistory() {
         root.memoryUsageSamples = root.appendSample(root.memoryUsageSamples,
-            root.sensorPercent(root.memoryUsageSensor),
+            memoryUsage.percent,
             root.historySampleLimit,
             true);
         root.networkUploadSamples = root.appendSample(root.networkUploadSamples,
-            root.sensorRateValue(root.networkUploadSensor),
+            networkUpload.value,
             root.networkHistorySampleLimit,
             false);
         root.networkDownloadSamples = root.appendSample(root.networkDownloadSamples,
-            root.sensorRateValue(root.networkDownloadSensor),
+            networkDownload.value,
             root.networkHistorySampleLimit,
             false);
     }
@@ -232,14 +188,18 @@ PlasmoidItem {
 
     Local.GpuSensor {
         id: gpuUsage
+        metricId: "gpuUsage"
+        valueMode: "percent"
         active: Plasmoid.configuration.showGpu || root.gpuDetailsVisible
         sensorId: root.selectedGpu ? root.selectedGpu.usageSensorId : ""
         updateRateLimit: root.sensorUpdateRate
     }
 
-    Sensors.Sensor {
+    Local.SensorMonitor {
         id: cpuUsage
-        enabled: root.configString(Plasmoid.configuration.cpuSensorId).length > 0
+        metricId: "cpu"
+        valueMode: "percent"
+        active: Plasmoid.configuration.showCpu || root.cpuDetailsVisible
         sensorId: root.configString(Plasmoid.configuration.cpuSensorId)
         updateRateLimit: root.sensorUpdateRate
     }
@@ -256,16 +216,20 @@ PlasmoidItem {
         updateRateLimit: root.sensorUpdateRate
     }
 
-    Sensors.Sensor {
+    Local.SensorMonitor {
         id: memoryUsage
-        enabled: root.configString(Plasmoid.configuration.memorySensorId).length > 0
+        metricId: "memory"
+        valueMode: "percent"
+        active: Plasmoid.configuration.showMemory || root.memoryDetailsVisible
         sensorId: root.configString(Plasmoid.configuration.memorySensorId)
         updateRateLimit: root.sensorUpdateRate
     }
 
-    Sensors.Sensor {
+    Local.SensorMonitor {
         id: diskUsage
-        enabled: root.configString(Plasmoid.configuration.diskSensorId).length > 0
+        metricId: "disk"
+        valueMode: "percent"
+        active: Plasmoid.configuration.showDisk || root.diskDetailsVisible
         sensorId: root.configString(Plasmoid.configuration.diskSensorId)
         updateRateLimit: root.sensorUpdateRate
     }
@@ -284,16 +248,20 @@ PlasmoidItem {
         updateRateLimit: root.sensorUpdateRate
     }
 
-    Sensors.Sensor {
+    Local.SensorMonitor {
         id: networkDownload
-        enabled: root.configString(Plasmoid.configuration.networkDownloadSensorId).length > 0
+        metricId: "networkDownload"
+        valueMode: "bytesPerSecond"
+        active: Plasmoid.configuration.showNetwork || root.networkDetailsVisible
         sensorId: root.configString(Plasmoid.configuration.networkDownloadSensorId)
         updateRateLimit: root.sensorUpdateRate
     }
 
-    Sensors.Sensor {
+    Local.SensorMonitor {
         id: networkUpload
-        enabled: root.configString(Plasmoid.configuration.networkUploadSensorId).length > 0
+        metricId: "networkUpload"
+        valueMode: "bytesPerSecond"
+        active: Plasmoid.configuration.showNetwork || root.networkDetailsVisible
         sensorId: root.configString(Plasmoid.configuration.networkUploadSensorId)
         updateRateLimit: root.sensorUpdateRate
     }
