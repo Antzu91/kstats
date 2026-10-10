@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls as Controls
 import QtQuick.Layouts
+import "History.js" as History
 
 import org.kde.kirigami as Kirigami
 import "." as Local
@@ -9,13 +10,18 @@ Rectangle {
     id: root
 
     property int refreshInterval: 1500
-    property int sampleLimit: 72
-    property var previous: null
-    property var samples: []
-    property real userPercent: 0
-    property real systemPercent: 0
-    property real idlePercent: 0
-    property string errorText: ""
+    property bool active: false
+    property real windowDuration: 60000
+    property real now: 0
+    readonly property var userPercent: detailHistory.userPercent
+    readonly property var systemPercent: detailHistory.systemPercent
+    readonly property var idlePercent: detailHistory.idlePercent
+    readonly property string errorText: detailHistory.errorCode === "read"
+        ? i18nc("@info:status", "Unable to read CPU details")
+        : detailHistory.errorCode === "format"
+            ? i18nc("@info:status", "Unexpected CPU detail format") : ""
+
+    onNowChanged: detailHistory.advance()
 
     radius: Kirigami.Units.cornerRadius
     color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.04)
@@ -26,69 +32,17 @@ Rectangle {
     implicitHeight: Kirigami.Units.gridUnit * 8
 
     function percentText(value) {
-        return i18nc("@label percent", "%1%", value.toFixed(1));
+        return value === null ? i18nc("@label unavailable metric", "N/A")
+            : i18nc("@label percent", "%1%", value.toFixed(1));
     }
 
-    function refresh() {
-        command.exec("awk '/^cpu / {print $2,$3,$4,$5,$6,$7,$8,$9,$10,$11}' /proc/stat", function(result) {
-            if (result.exitCode !== 0) {
-                root.errorText = result.stderr.length > 0 ? result.stderr : i18nc("@info:status", "Unable to read CPU details");
-                return;
-            }
-
-            var fields = result.stdout.trim().split(/\s+/).map(function(item) {
-                var value = Number(item);
-                return isFinite(value) ? value : 0;
-            });
-
-            if (fields.length < 7) {
-                root.errorText = i18nc("@info:status", "Unexpected CPU detail format");
-                return;
-            }
-
-            var current = {
-                user: fields[0] + fields[1],
-                system: fields[2] + fields[5] + fields[6],
-                idle: fields[3] + fields[4],
-                steal: fields.length > 7 ? fields[7] : 0
-            };
-            current.total = current.user + current.system + current.idle + current.steal;
-
-            if (root.previous !== null) {
-                var totalDelta = Math.max(1, current.total - root.previous.total);
-                var user = Math.max(0, current.user - root.previous.user) / totalDelta * 100;
-                var system = Math.max(0, current.system - root.previous.system) / totalDelta * 100;
-                var idle = Math.max(0, current.idle - root.previous.idle) / totalDelta * 100;
-
-                root.userPercent = Math.max(0, Math.min(100, user));
-                root.systemPercent = Math.max(0, Math.min(100, system));
-                root.idlePercent = Math.max(0, Math.min(100, idle));
-
-                var next = root.samples.slice(0);
-                next.push({
-                    user: root.userPercent,
-                    system: root.systemPercent,
-                    idle: root.idlePercent
-                });
-                while (next.length > root.sampleLimit) {
-                    next.shift();
-                }
-                root.samples = next;
-                chart.requestPaint();
-            }
-
-            root.previous = current;
-            root.errorText = "";
-        });
-    }
-
-    Component.onCompleted: refresh()
-
-    Timer {
-        interval: root.refreshInterval
-        repeat: true
-        running: root.visible
-        onTriggered: root.refresh()
+    Local.CpuHistory {
+        id: detailHistory
+        active: root.active
+        refreshInterval: root.refreshInterval
+        provider: function(callback) {
+            command.exec("awk '/^cpu / {print $2,$3,$4,$5,$6,$7,$8,$9,$10,$11}' /proc/stat", callback);
+        }
     }
 
     Local.RunCommand {
@@ -126,6 +80,13 @@ Rectangle {
             Layout.fillHeight: true
             antialiasing: true
             property bool showScale: true
+            readonly property var userSegments: History.segments(detailHistory.userSamples, root.windowDuration, root.now)
+            readonly property var systemSegments: History.segments(detailHistory.systemSamples, root.windowDuration, root.now)
+            readonly property var idleSegments: History.segments(detailHistory.idleSamples, root.windowDuration, root.now)
+
+            onUserSegmentsChanged: requestPaint()
+            onSystemSegmentsChanged: requestPaint()
+            onIdleSegmentsChanged: requestPaint()
 
             onWidthChanged: requestPaint()
             onHeightChanged: requestPaint()
@@ -133,7 +94,7 @@ Rectangle {
                 var ctx = getContext("2d");
                 ctx.reset();
 
-                if (width <= 0 || height <= 0 || root.samples.length < 2) {
+                if (width <= 0 || height <= 0) {
                     return;
                 }
 
@@ -170,31 +131,34 @@ Rectangle {
                     }
                 }
 
-                drawLine(ctx, "idle", Kirigami.Theme.disabledTextColor, plotLeft, plotTop, plotWidth, plotHeight);
-                drawLine(ctx, "system", Kirigami.Theme.neutralTextColor, plotLeft, plotTop, plotWidth, plotHeight);
-                drawLine(ctx, "user", Kirigami.Theme.positiveTextColor, plotLeft, plotTop, plotWidth, plotHeight);
+                drawLine(ctx, idleSegments, "idle", Kirigami.Theme.disabledTextColor, plotLeft, plotTop, plotWidth, plotHeight);
+                drawLine(ctx, systemSegments, "system", Kirigami.Theme.neutralTextColor, plotLeft, plotTop, plotWidth, plotHeight);
+                drawLine(ctx, userSegments, "user", Kirigami.Theme.positiveTextColor, plotLeft, plotTop, plotWidth, plotHeight);
             }
 
-            function drawLine(ctx, key, color, plotLeft, plotTop, plotWidth, plotHeight) {
-                var step = plotWidth / Math.max(1, root.sampleLimit - 1);
+            function drawLine(ctx, segments, key, color, plotLeft, plotTop, plotWidth, plotHeight) {
                 ctx.lineWidth = key === "user" ? 2.25 : 1.8;
                 ctx.lineJoin = "round";
                 ctx.lineCap = "round";
                 ctx.strokeStyle = color;
                 ctx.globalAlpha = key === "idle" ? 0.60 : 0.90;
-                ctx.beginPath();
-
-                for (var i = 0; i < root.samples.length; i++) {
-                    var x = plotLeft + plotWidth - (root.samples.length - 1 - i) * step;
-                    var y = plotTop + plotHeight - (Math.max(0, Math.min(100, root.samples[i][key])) / 100 * plotHeight);
-                    if (i === 0) {
-                        ctx.moveTo(x, y);
-                    } else {
-                        ctx.lineTo(x, y);
+                for (var segmentIndex = 0; segmentIndex < segments.length; segmentIndex++) {
+                    var segment = segments[segmentIndex];
+                    if (segment.length < 2) {
+                        continue;
                     }
+                    ctx.beginPath();
+                    for (var i = 0; i < segment.length; i++) {
+                        var x = plotLeft + History.xPosition(segment[i].timestamp, root.windowDuration, root.now) * plotWidth;
+                        var y = plotTop + plotHeight - (Math.min(100, segment[i].value) / 100 * plotHeight);
+                        if (i === 0) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    }
+                    ctx.stroke();
                 }
-
-                ctx.stroke();
             }
         }
 
