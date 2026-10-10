@@ -1,14 +1,17 @@
 import QtQuick
+import "History.js" as History
 
 import org.kde.kirigami as Kirigami
 
 Canvas {
     id: spark
 
-    property real sampleValue: 0
-    property int sampleLimit: 36
+    // Passive renderer: replace samples with HistoryStore observations and bind
+    // now to the sampler clock. Select 60000, 300000, or 900000 ms without resetting.
     property var samples: []
-    property bool autoSample: true
+    property real windowDuration: 60000
+    property real now: 0
+    readonly property var renderSegments: History.segments(samples, windowDuration, now)
     property color lineColor: "white"
     property bool showFill: false
     property bool showGrid: false
@@ -19,24 +22,14 @@ Canvas {
 
     antialiasing: true
 
-    onSampleValueChanged: if (autoSample) addSample(sampleValue)
-    onSamplesChanged: requestPaint()
-    Component.onCompleted: if (autoSample) addSample(sampleValue)
-
-    function addSample(value) {
-        var numeric = Number(value);
-        if (!isFinite(numeric)) {
-            numeric = 0;
-        }
-
-        var next = samples.slice(0);
-        next.push(Math.max(0, Math.min(100, numeric)));
-        while (next.length > sampleLimit) {
-            next.shift();
-        }
-        samples = next;
-        requestPaint();
-    }
+    onRenderSegmentsChanged: requestPaint()
+    onLineColorChanged: requestPaint()
+    onShowFillChanged: requestPaint()
+    onShowGridChanged: requestPaint()
+    onShowScaleChanged: requestPaint()
+    onScaleTicksChanged: requestPaint()
+    onScaleSuffixChanged: requestPaint()
+    onScaleColorChanged: requestPaint()
 
     onWidthChanged: requestPaint()
     onHeightChanged: requestPaint()
@@ -49,7 +42,7 @@ Canvas {
         var ctx = getContext("2d");
         ctx.reset();
 
-        if (samples.length < 2 || width <= 0 || height <= 0) {
+        if (width <= 0 || height <= 0) {
             return;
         }
 
@@ -68,7 +61,6 @@ Canvas {
         var plotTop = showScale ? 2 : 0;
         var plotWidth = Math.max(1, width - plotLeft);
         var plotHeight = Math.max(1, height - (showScale ? 4 : 0));
-        var step = plotWidth / Math.max(1, sampleLimit - 1);
 
         if (showGrid || showScale) {
             ctx.lineWidth = 1;
@@ -105,38 +97,44 @@ Canvas {
             }
         }
 
-        if (showFill) {
-            ctx.fillStyle = lineColor;
-            ctx.globalAlpha = 0.16;
+        for (var segmentIndex = 0; segmentIndex < renderSegments.length; segmentIndex++) {
+            var segment = renderSegments[segmentIndex];
+            if (segment.length < 2) {
+                continue;
+            }
+            var startX = plotLeft + History.xPosition(segment[0].timestamp, windowDuration, now) * plotWidth;
+            var endX = plotLeft + History.xPosition(segment[segment.length - 1].timestamp, windowDuration, now) * plotWidth;
+            if (showFill) {
+                ctx.fillStyle = lineColor;
+                ctx.globalAlpha = 0.16;
+                ctx.beginPath();
+                ctx.moveTo(startX, plotTop + plotHeight);
+                for (var fillIndex = 0; fillIndex < segment.length; fillIndex++) {
+                    var fillX = plotLeft + History.xPosition(segment[fillIndex].timestamp, windowDuration, now) * plotWidth;
+                    var fillY = plotTop + plotHeight - (Math.min(100, segment[fillIndex].value) / 100 * plotHeight);
+                    ctx.lineTo(fillX, fillY);
+                }
+                ctx.lineTo(endX, plotTop + plotHeight);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            ctx.lineWidth = 2;
+            ctx.lineJoin = "round";
+            ctx.lineCap = "round";
+            ctx.strokeStyle = lineColor;
+            ctx.globalAlpha = 0.9;
             ctx.beginPath();
-            ctx.moveTo(plotLeft + plotWidth - (samples.length - 1) * step, plotTop + plotHeight);
-            for (var fillIndex = 0; fillIndex < samples.length; fillIndex++) {
-                var fillX = plotLeft + plotWidth - (samples.length - 1 - fillIndex) * step;
-                var fillY = plotTop + plotHeight - (samples[fillIndex] / 100 * plotHeight);
-                ctx.lineTo(fillX, fillY);
+            for (var i = 0; i < segment.length; i++) {
+                var x = plotLeft + History.xPosition(segment[i].timestamp, windowDuration, now) * plotWidth;
+                var y = plotTop + plotHeight - (Math.min(100, segment[i].value) / 100 * plotHeight);
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
             }
-            ctx.lineTo(plotLeft + plotWidth, plotTop + plotHeight);
-            ctx.closePath();
-            ctx.fill();
+            ctx.stroke();
         }
-
-        ctx.lineWidth = 2;
-        ctx.lineJoin = "round";
-        ctx.lineCap = "round";
-        ctx.strokeStyle = lineColor;
-        ctx.globalAlpha = 0.9;
-        ctx.beginPath();
-
-        for (var i = 0; i < samples.length; i++) {
-            var x = plotLeft + plotWidth - (samples.length - 1 - i) * step;
-            var y = plotTop + plotHeight - (samples[i] / 100 * plotHeight);
-            if (i === 0) {
-                ctx.moveTo(x, y);
-            } else {
-                ctx.lineTo(x, y);
-            }
-        }
-
-        ctx.stroke();
     }
 }

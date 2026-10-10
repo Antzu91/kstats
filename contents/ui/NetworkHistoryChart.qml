@@ -1,17 +1,19 @@
 import QtQuick
+import "History.js" as History
 
 import org.kde.kirigami as Kirigami
 
 Canvas {
     id: chart
 
-    property real uploadValue: 0
-    property real downloadValue: 0
-    property int sampleKey: 0
-    property int sampleLimit: 48
+    // Passive renderer: both arrays contain timestamped HistoryStore observations
+    // in bytes/second. Bind now and windowDuration to the same clock/window as the panel.
     property var uploadSamples: []
     property var downloadSamples: []
-    property bool autoSample: true
+    property real windowDuration: 60000
+    property real now: 0
+    readonly property var uploadSegments: History.segments(uploadSamples, windowDuration, now)
+    readonly property var downloadSegments: History.segments(downloadSamples, windowDuration, now)
     property color uploadColor: Kirigami.Theme.negativeTextColor
     property color downloadColor: Kirigami.Theme.focusColor
     property bool showScale: true
@@ -19,44 +21,22 @@ Canvas {
 
     antialiasing: true
 
-    onSampleKeyChanged: if (autoSample) addSample(uploadValue, downloadValue)
-    onUploadSamplesChanged: requestPaint()
-    onDownloadSamplesChanged: requestPaint()
-    Component.onCompleted: if (autoSample) addSample(uploadValue, downloadValue)
+    onUploadSegmentsChanged: requestPaint()
+    onDownloadSegmentsChanged: requestPaint()
+    onUploadColorChanged: requestPaint()
+    onDownloadColorChanged: requestPaint()
+    onShowScaleChanged: requestPaint()
+    onScaleColorChanged: requestPaint()
     onWidthChanged: requestPaint()
     onHeightChanged: requestPaint()
 
-    function normalize(value) {
-        var numeric = Number(value);
-        return isFinite(numeric) ? Math.max(0, numeric) : 0;
-    }
-
-    function addSample(upload, download) {
-        var nextUpload = uploadSamples.slice(0);
-        var nextDownload = downloadSamples.slice(0);
-
-        nextUpload.push(normalize(upload));
-        nextDownload.push(normalize(download));
-
-        while (nextUpload.length > sampleLimit) {
-            nextUpload.shift();
-        }
-        while (nextDownload.length > sampleLimit) {
-            nextDownload.shift();
-        }
-
-        uploadSamples = nextUpload;
-        downloadSamples = nextDownload;
-        requestPaint();
-    }
-
     function maxSample() {
         var maximum = 1;
-        for (var i = 0; i < uploadSamples.length; i++) {
-            maximum = Math.max(maximum, uploadSamples[i]);
-        }
-        for (var j = 0; j < downloadSamples.length; j++) {
-            maximum = Math.max(maximum, downloadSamples[j]);
+        var allSegments = uploadSegments.concat(downloadSegments);
+        for (var i = 0; i < allSegments.length; i++) {
+            for (var j = 0; j < allSegments[i].length; j++) {
+                maximum = Math.max(maximum, allSegments[i][j].value);
+            }
         }
         return maximum;
     }
@@ -72,42 +52,44 @@ Canvas {
         return i18nc("@label rate in bytes per second", "%1 B/s", Math.round(value));
     }
 
-    function drawSeries(ctx, samples, color, baseline, scale, direction, step, plotLeft, plotWidth) {
-        if (samples.length < 2) {
-            return;
-        }
-
-        var startX = plotLeft + plotWidth - (samples.length - 1) * step;
-
-        ctx.fillStyle = color;
-        ctx.globalAlpha = 0.12;
-        ctx.beginPath();
-        ctx.moveTo(startX, baseline);
-        for (var fillIndex = 0; fillIndex < samples.length; fillIndex++) {
-            var fillX = plotLeft + plotWidth - (samples.length - 1 - fillIndex) * step;
-            var fillY = baseline + direction * samples[fillIndex] * scale;
-            ctx.lineTo(fillX, fillY);
-        }
-        ctx.lineTo(plotLeft + plotWidth, baseline);
-        ctx.closePath();
-        ctx.fill();
-
-        ctx.strokeStyle = color;
-        ctx.globalAlpha = 0.9;
-        ctx.lineWidth = 2;
-        ctx.lineJoin = "round";
-        ctx.lineCap = "round";
-        ctx.beginPath();
-        for (var i = 0; i < samples.length; i++) {
-            var x = plotLeft + plotWidth - (samples.length - 1 - i) * step;
-            var y = baseline + direction * samples[i] * scale;
-            if (i === 0) {
-                ctx.moveTo(x, y);
-            } else {
-                ctx.lineTo(x, y);
+    function drawSeries(ctx, segments, color, baseline, scale, direction, plotLeft, plotWidth) {
+        for (var segmentIndex = 0; segmentIndex < segments.length; segmentIndex++) {
+            var segment = segments[segmentIndex];
+            if (segment.length < 2) {
+                continue;
             }
+            var startX = plotLeft + History.xPosition(segment[0].timestamp, windowDuration, now) * plotWidth;
+            var endX = plotLeft + History.xPosition(segment[segment.length - 1].timestamp, windowDuration, now) * plotWidth;
+            ctx.fillStyle = color;
+            ctx.globalAlpha = 0.12;
+            ctx.beginPath();
+            ctx.moveTo(startX, baseline);
+            for (var fillIndex = 0; fillIndex < segment.length; fillIndex++) {
+                var fillX = plotLeft + History.xPosition(segment[fillIndex].timestamp, windowDuration, now) * plotWidth;
+                var fillY = baseline + direction * segment[fillIndex].value * scale;
+                ctx.lineTo(fillX, fillY);
+            }
+            ctx.lineTo(endX, baseline);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.strokeStyle = color;
+            ctx.globalAlpha = 0.9;
+            ctx.lineWidth = 2;
+            ctx.lineJoin = "round";
+            ctx.lineCap = "round";
+            ctx.beginPath();
+            for (var i = 0; i < segment.length; i++) {
+                var x = plotLeft + History.xPosition(segment[i].timestamp, windowDuration, now) * plotWidth;
+                var y = baseline + direction * segment[i].value * scale;
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            ctx.stroke();
         }
-        ctx.stroke();
     }
 
     onPaint: {
@@ -123,8 +105,8 @@ Canvas {
         var fontSize = Math.max(9, Kirigami.Theme.smallFont.pixelSize - 1);
         ctx.font = fontSize + "px sans-serif";
 
-        var maxLabel = formatRate(maxValue);
-        var zeroLabel = formatRate(0);
+        var maxLabel = showScale ? formatRate(maxValue) : "";
+        var zeroLabel = showScale ? formatRate(0) : "";
         var leftInset = showScale
             ? Math.ceil(Math.max(ctx.measureText(maxLabel).width, ctx.measureText(zeroLabel).width) + Kirigami.Units.smallSpacing)
             : 0;
@@ -135,7 +117,6 @@ Canvas {
         baseline = plotTop + plotHeight / 2;
 
         var scale = Math.max(1, plotHeight / 2 - 6) / maxValue;
-        var step = plotWidth / Math.max(1, sampleLimit - 1);
         var topLine = baseline - maxValue * scale;
         var bottomLine = baseline + maxValue * scale;
 
@@ -164,7 +145,7 @@ Canvas {
             ctx.fillText(maxLabel, 0, Math.min(height - fontSize / 2, bottomLine));
         }
 
-        drawSeries(ctx, uploadSamples, uploadColor, baseline, scale, -1, step, plotLeft, plotWidth);
-        drawSeries(ctx, downloadSamples, downloadColor, baseline, scale, 1, step, plotLeft, plotWidth);
+        drawSeries(ctx, uploadSegments, uploadColor, baseline, scale, -1, plotLeft, plotWidth);
+        drawSeries(ctx, downloadSegments, downloadColor, baseline, scale, 1, plotLeft, plotWidth);
     }
 }
