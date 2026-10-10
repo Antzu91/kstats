@@ -110,6 +110,126 @@ TestCase {
         compare(History.segments(collector.userSamples, 300000, 101100).length, 2);
     }
 
+    function test_heldReadExpiresWithoutCompletion_data() {
+        return [{ tag: "shared-clock", useAdvance: true }, { tag: "poll-timer", useAdvance: false }];
+    }
+
+    function test_heldReadExpiresWithoutCompletion(data) {
+        establishAvailable();
+        fakeNow = 3000;
+        collector.refresh();
+        compare(pending.length, 1);
+        fakeNow = 63000;
+        if (data.useAdvance) {
+            collector.advance();
+        } else {
+            collector.refresh();
+        }
+        compare(collector.status, "stale");
+        compare(collector.userPercent, null);
+        compare(collector.systemPercent, null);
+        compare(collector.idlePercent, null);
+        compare(collector.inFlight, true);
+        compare(pending.length, 1);
+        var samples = collector.userSamples;
+        compare(samples[samples.length - 1].status, "stale");
+        compare(samples[samples.length - 1].value, null);
+        compare(samples[samples.length - 1].timestamp, 63000);
+        fakeNow = 64000;
+        collector.advance();
+        collector.refresh();
+        compare(pending.length, 1);
+        compare(collector.userSamples.length, samples.length);
+        collector.refreshInterval = 10000;
+        collector.advance();
+        compare(collector.status, "stale"); // Longer intervals cannot revive expired readings.
+
+        // Late output cannot confirm a reading or provide a recovery baseline.
+        deliver("9000 0 0 9000 0 0 0 0", 64100);
+        compare(collector.status, "stale");
+        compare(collector.userPercent, null);
+        tryVerify(function() { return pending.length === 1; });
+        deliver("200 0 0 200 0 0 0 0", 64200);
+        compare(collector.status, "loading");
+        fakeNow = 65000;
+        collector.refresh();
+        deliver("220 0 0 280 0 0 0 0", 65100);
+        compare(collector.userPercent, 20);
+        fakeNow = 66000;
+        collector.refresh();
+        deliver("240 0 0 360 0 0 0 0", 66100);
+        var segments = History.segments(collector.userSamples, 300000, 66100);
+        compare(segments.length, 2);
+        compare(segments[0][segments[0].length - 1].timestamp, 2100);
+        compare(segments[1][0].timestamp, 65100);
+        compare(segments[1].length, 2);
+    }
+
+    function test_increasedIntervalExtendsHeldReadFreshness() {
+        establishAvailable();
+        fakeNow = 3000;
+        collector.refresh();
+        collector.refreshInterval = 10000;
+        fakeNow = 12000;
+        collector.advance();
+        collector.refresh();
+        compare(collector.status, "available");
+        compare(collector.userPercent, 10);
+        compare(pending.length, 1);
+        deliver("210 0 0 1090 0 0 0 0", 12100);
+        compare(collector.status, "available");
+        compare(collector.userPercent, 10);
+        compare(History.segments(collector.userSamples, 60000, 12100).length, 1);
+        fakeNow = 22000;
+        collector.refresh();
+        fakeNow = 37101;
+        collector.advance();
+        compare(collector.status, "stale");
+        compare(collector.userPercent, null);
+        compare(pending.length, 1);
+    }
+
+    function test_shorterIntervalHonorsPreviousAcquisitionCadence() {
+        collector.refreshInterval = 10000;
+        establishAvailable();
+        collector.refreshInterval = 500;
+        fakeNow = 12000;
+        collector.advance();
+        compare(collector.status, "available");
+        fakeNow = 27101;
+        collector.advance();
+        compare(collector.status, "stale");
+        compare(collector.userPercent, null);
+    }
+
+    function test_rollbackWhileReadPendingInvalidatesBaseline() {
+        establishAvailable();
+        fakeNow = 3000;
+        collector.refresh();
+        fakeNow = 4000;
+        collector.advance();
+        // Still after acquisition and request start: use the last observed clock.
+        fakeNow = 3500;
+        collector.advance();
+        compare(collector.status, "stale");
+        compare(collector.userPercent, null);
+        compare(collector.userSamples.length, 1);
+        compare(collector.userSamples[0].status, "stale");
+        compare(collector.inFlight, true);
+        collector.refresh();
+        compare(pending.length, 1);
+        deliver("9000 0 0 9000 0 0 0 0", 3600);
+        compare(collector.status, "stale");
+        tryVerify(function() { return pending.length === 1; });
+        deliver("200 0 0 200 0 0 0 0", 3700);
+        compare(collector.status, "loading");
+        fakeNow = 4500;
+        collector.refresh();
+        deliver("220 0 0 280 0 0 0 0", 4600);
+        compare(collector.status, "available");
+        compare(collector.userPercent, 20);
+    }
+
     function test_failuresResetBaseline_data() {
         return [
             { tag: "exit-code", text: "100 0 0 100 0 0 0 0", exitCode: 1, exitStatus: 0, errorCode: "read" },

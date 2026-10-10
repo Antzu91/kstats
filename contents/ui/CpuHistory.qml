@@ -24,6 +24,8 @@ QtObject {
     property bool _completed: false
     property int _generation: 0
     property var _baseline: null
+    property var _request: null
+    property var _lastObservedAt: null
     property HistoryStore _history: HistoryStore { sampleInterval: collector.refreshInterval }
     property Timer _timer: Timer {
         interval: Math.max(500, collector.refreshInterval)
@@ -49,44 +51,65 @@ QtObject {
         }
         _generation++;
         _baseline = null;
-        record(CpuCounters.empty(active ? "loading" : "stale", null), clock());
+        _lastObservedAt = clock();
+        record(CpuCounters.empty(active ? "loading" : "stale", null), _lastObservedAt);
         if (active) {
             refresh();
         }
     }
 
+    function checkFreshness(timestamp) {
+        if (!active || !_completed) {
+            return;
+        }
+        var rolledBack = _lastObservedAt !== null && timestamp < _lastObservedAt;
+        _lastObservedAt = timestamp;
+        var expiredReading = _baseline !== null && CpuCounters.discontinuity(
+            _baseline.timestamp, timestamp, _baseline.interval, refreshInterval);
+        var expiredRequest = _request !== null && _request.generation === _generation
+            && CpuCounters.discontinuity(_request.timestamp, timestamp, _request.interval, refreshInterval);
+        if (rolledBack || expiredReading || expiredRequest) {
+            // Expiry is independent of command completion. Keep its single-request
+            // lock, but invalidate its eventual result and the counter baseline.
+            _generation++;
+            _baseline = null;
+            record(CpuCounters.empty("stale", null), timestamp);
+        }
+    }
+
     function advance() {
-        _history.advance(clock());
+        var timestamp = clock();
+        checkFreshness(timestamp);
+        _history.advance(timestamp);
     }
 
     function refresh() {
-        if (!active || !_completed || _inFlight) {
+        if (!active || !_completed) {
+            return;
+        }
+        var timestamp = clock();
+        checkFreshness(timestamp);
+        if (_inFlight) {
             return;
         }
         if (typeof provider !== "function") {
             _baseline = null;
-            record(CpuCounters.empty("unavailable", null, "read"), clock());
+            record(CpuCounters.empty("unavailable", null, "read"), timestamp);
             return;
         }
         var generation = _generation;
-        var requestedAt = clock();
-        var requestedInterval = refreshInterval;
+        _request = { timestamp: timestamp, interval: refreshInterval, generation: generation };
         _inFlight = true;
         provider(function(result) {
+            var timestamp = collector.clock();
+            collector.checkFreshness(timestamp);
             collector._inFlight = false;
+            collector._request = null;
             if (!collector.active || generation !== collector._generation) {
                 if (collector.active) {
                     // RunCommand cleans up its source after invoking the callback.
                     Qt.callLater(collector.refresh);
                 }
-                return;
-            }
-            var timestamp = collector.clock();
-            if (CpuCounters.discontinuity(requestedAt, timestamp, requestedInterval, collector.refreshInterval)) {
-                // A pre-suspend command result is not a current counter snapshot.
-                collector._baseline = null;
-                collector.record(CpuCounters.empty("stale", null), timestamp);
-                Qt.callLater(collector.refresh);
                 return;
             }
             if (!result || result.exitCode !== 0 || (result.exitStatus !== undefined && result.exitStatus !== 0)) {
