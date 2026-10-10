@@ -9,6 +9,17 @@ Item {
     id: page
 
     required property var rootItem
+    // Replace providers in fixtures without connecting to the session bus.
+    property Component commandComponent: Component { Local.RunCommand {} }
+    property Component applicationsComponent: Component {
+        Local.TopApplicationList {
+            active: page.rootItem.diskDetailsVisible
+            metric: "disk"
+            limit: 5
+            rowHeight: Kirigami.Units.gridUnit * 1.88
+            refreshInterval: Math.max(3000, page.rootItem.sensorUpdateRate * 3)
+        }
+    }
     property var disks: []
     property var mounts: []
     property var previousDiskStats: ({})
@@ -17,6 +28,10 @@ Item {
     property int maxDisks: 3
     property int maxMounts: 3
     property int currentView: 0
+    readonly property bool active: rootItem.diskDetailsVisible
+    property bool completed: false
+    property bool refreshInFlight: false
+    property int refreshGeneration: 0
     readonly property real sectionSpacing: Kirigami.Units.smallSpacing * 1.15
     readonly property real headerHeight: Kirigami.Units.gridUnit * 1.55
     readonly property real switchHeight: Kirigami.Units.gridUnit * 2.1
@@ -285,9 +300,42 @@ Item {
         page.mounts = layout.mountRows.slice(0, page.maxMounts);
     }
 
+    function demandChanged() {
+        if (!completed) {
+            return;
+        }
+        refreshGeneration++;
+        previousDiskStats = ({});
+        previousDiskStatsTime = 0;
+        if (active) {
+            refresh();
+        }
+    }
+
+    function acceptResult(generation) {
+        if (active && generation === refreshGeneration) {
+            return true;
+        }
+        refreshInFlight = false;
+        if (active) {
+            // Let RunCommand disconnect its old source before requesting it again.
+            Qt.callLater(page.refresh);
+        }
+        return false;
+    }
+
     function refresh() {
-        layoutCommand.exec("lsblk -b -J -o NAME,KNAME,TYPE,SIZE,MODEL,PKNAME,MOUNTPOINTS", function(layoutResult) {
+        if (!completed || !active || refreshInFlight) {
+            return;
+        }
+        refreshInFlight = true;
+        var generation = refreshGeneration;
+        layoutCommand.provider.exec("lsblk -b -J -o NAME,KNAME,TYPE,SIZE,MODEL,PKNAME,MOUNTPOINTS", function(layoutResult) {
+            if (!page.acceptResult(generation)) {
+                return;
+            }
             if (layoutResult.exitCode !== 0) {
+                page.refreshInFlight = false;
                 page.errorText = layoutResult.stderr.length > 0 ? layoutResult.stderr : i18nc("@info:status", "Unable to read disk devices");
                 page.disks = [];
                 page.mounts = [];
@@ -298,45 +346,62 @@ Item {
             try {
                 layout = page.parseBlockDevices(layoutResult.stdout);
             } catch (error) {
+                page.refreshInFlight = false;
                 page.errorText = i18nc("@info:status", "Unable to parse disk devices");
                 page.disks = [];
                 page.mounts = [];
                 return;
             }
 
-            usageCommand.exec("df -P -B1 -x tmpfs -x devtmpfs -x squashfs -x overlay -x efivarfs", function(usageResult) {
+            usageCommand.provider.exec("df -P -B1 -x tmpfs -x devtmpfs -x squashfs -x overlay -x efivarfs", function(usageResult) {
+                if (!page.acceptResult(generation)) {
+                    return;
+                }
                 if (usageResult.exitCode === 0) {
                     page.applyFilesystemUsage(layout, usageResult.stdout);
                 }
 
-                statsCommand.exec("cat /proc/diskstats", function(statsResult) {
+                statsCommand.provider.exec("cat /proc/diskstats", function(statsResult) {
+                    if (!page.acceptResult(generation)) {
+                        return;
+                    }
                     page.finishRefresh(layout, statsResult.exitCode === 0 ? statsResult.stdout : "");
+                    page.refreshInFlight = false;
                 });
             });
         });
     }
 
-    onVisibleChanged: if (visible && page.rootItem.diskDetailsVisible) { refresh(); }
-    Component.onCompleted: if (page.rootItem.diskDetailsVisible) { refresh(); }
+    onActiveChanged: demandChanged()
+    Component.onCompleted: {
+        completed = true;
+        demandChanged();
+    }
 
     Timer {
         interval: Math.max(2500, page.rootItem.sensorUpdateRate * 2)
         repeat: true
-        running: page.rootItem.diskDetailsVisible
+        running: page.active && page.completed
         triggeredOnStart: false
         onTriggered: page.refresh()
     }
 
-    Local.RunCommand {
+    Loader {
         id: layoutCommand
+        readonly property var provider: item
+        sourceComponent: page.commandComponent
     }
 
-    Local.RunCommand {
+    Loader {
         id: usageCommand
+        readonly property var provider: item
+        sourceComponent: page.commandComponent
     }
 
-    Local.RunCommand {
+    Loader {
         id: statsCommand
+        readonly property var provider: item
+        sourceComponent: page.commandComponent
     }
 
     Column {
@@ -659,7 +724,6 @@ Item {
         Controls.Label {
             visible: page.currentView === 0 ? page.disks.length === 0 : page.mounts.length === 0
             width: parent.width
-            height: visible ? implicitHeight : 0
             text: page.errorText.length > 0 ? page.errorText : i18nc("@info:status", "No disk data yet")
             color: Kirigami.Theme.disabledTextColor
             wrapMode: Text.WordWrap
@@ -670,14 +734,9 @@ Item {
             height: Kirigami.Units.smallSpacing
         }
 
-        Local.TopApplicationList {
-            active: page.rootItem.diskDetailsVisible
+        Loader {
             width: parent.width
-            height: implicitHeight
-            metric: "disk"
-            limit: 5
-            rowHeight: Kirigami.Units.gridUnit * 1.88
-            refreshInterval: Math.max(3000, page.rootItem.sensorUpdateRate * 3)
+            sourceComponent: page.applicationsComponent
         }
     }
 }

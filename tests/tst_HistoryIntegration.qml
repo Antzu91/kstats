@@ -79,6 +79,26 @@ TestCase {
         id: extraSamplerFactory
         Local.HistorySampler {}
     }
+    Component {
+        id: pulseMonitorFactory
+        QtObject {
+            property bool collecting: true
+            property string metricId: "gpu"
+            property string sourceKey: "gpu0"
+            property string status: "available"
+            property real percent: 0
+            property bool pulse: false
+            property int snapshotCalls: 0
+            function snapshot(timestamp) {
+                snapshotCalls++;
+                if (pulse) {
+                    status = "unavailable";
+                    status = "available";
+                }
+                return { status: status, value: percent };
+            }
+        }
+    }
 
     function init() { time = 100000; }
     function fixture() {
@@ -132,6 +152,135 @@ TestCase {
         reading(f, 0, 1000);
         compare(f.panel.renderSegments.length, 2);
         compare(f.panel.renderSegments[1][0].value, 0);
+    }
+
+    function test_outageAndRecoveryBetweenSlowTicksLeavesGap() {
+        var f = fixture();
+        f.monitor.updateRateLimit = 10000;
+        reading(f, 0, 10000);
+        time += 2000;
+        f.monitor.sensor.status = Sensors.Sensor.Error;
+        time += 4000;
+        f.monitor.sensor.acquire(0);
+        time += 4000;
+        f.tick();
+        compare(f.panel.renderSegments.length, 2);
+        compare(f.sampler.samples[2].timestamp, 112000);
+        compare(f.sampler.samples[2].status, "unavailable");
+        compare(f.sampler.samples[3].value, 0);
+    }
+
+    function test_equalZeroAcquisitionsBetweenSlowTicksStayContinuous() {
+        var f = fixture();
+        f.monitor.updateRateLimit = 10000;
+        reading(f, 0, 10000);
+        for (var i = 0; i < 10; ++i) {
+            time += 1000;
+            f.monitor.sensor.acquire(0);
+        }
+        f.tick();
+        compare(f.sampler.samples.length, 3); // Initial gap and two sampling ticks.
+        compare(f.panel.renderSegments.length, 1);
+        compare(f.panel.renderSegments[0].length, 2);
+    }
+
+    function test_snapshotStatusChangeDoesNotAdvancePastTickOrClearOtherMetric() {
+        var f = fixture();
+        reading(f, 0, 1000);
+        f.store.append("ram", "memory/used", 25, "available", time);
+        var other = f.store.samplesFor("ram", "memory/used");
+        // Wall time has moved on when snapshot emits its synchronous stale status.
+        f.store.clock = function() { return testCase.time + 1; };
+        time += 6000;
+        f.tick();
+        compare(f.store.now, time);
+        compare(f.store.samplesFor("ram", "memory/used"), other);
+        compare(f.sampler.samples.length, 4); // Includes the elapsed-interval gap.
+        compare(f.sampler.samples[3].timestamp, time);
+        compare(f.sampler.samples[3].status, "stale");
+        compare(f.sampler.samples[3].value, null);
+    }
+
+    function test_lossAndRecoveryInsideSnapshotPreservesOneGapWithoutRecursion() {
+        var f = fixture();
+        var monitor = createTemporaryObject(pulseMonitorFactory, testCase);
+        var sampler = createTemporaryObject(extraSamplerFactory, testCase, { monitor: monitor, store: f.store });
+        time += 1000;
+        sampler.sample(time);
+        f.store.append("ram", "memory/used", 25, "available", time);
+        var other = f.store.samplesFor("ram", "memory/used");
+        time += 1000;
+        f.store.clock = function() { return testCase.time + 1; };
+        monitor.pulse = true;
+        sampler.sample(time);
+        compare(monitor.snapshotCalls, 2);
+        compare(sampler.samples.length, 3);
+        compare(sampler.samples[2].status, "unavailable");
+        compare(sampler.samples[2].timestamp, time);
+        compare(f.store.now, time);
+        compare(f.store.samplesFor("ram", "memory/used"), other);
+        monitor.pulse = false;
+        sampler.sample(time); // An equal-time retry must not overwrite the gap.
+        compare(sampler.samples.length, 3);
+        compare(sampler.samples[2].status, "unavailable");
+        time += 1000;
+        sampler.sample(time);
+        compare(History.segments(sampler.samples, 60000, time).length, 2);
+        sampler.destroy();
+        wait(0); // Release the extra sampler while its shared store still exists.
+    }
+
+    function test_statusChurnDuringOutageDoesNotAppendRepeatedTransitionGaps() {
+        var f = fixture();
+        f.monitor.updateRateLimit = 10000;
+        reading(f, 0, 10000);
+        time += 1000;
+        f.monitor.sensor.status = Sensors.Sensor.Error;
+        var gapCount = f.sampler.samples.length;
+        compare(gapCount, 3);
+        time += 1000;
+        f.monitor.sensor.status = Sensors.Sensor.Removed;
+        time += 1000;
+        f.monitor.sensor.status = Sensors.Sensor.Ready;
+        f.monitor.sensor.acquire(null);
+        compare(f.sampler.samples.length, gapCount);
+        time += 1000;
+        f.monitor.sensor.acquire(0);
+        compare(f.sampler.samples.length, gapCount);
+        time += 6000;
+        f.tick();
+        compare(f.sampler.samples.length, gapCount + 1);
+        compare(f.panel.renderSegments.length, 2);
+    }
+
+    function test_outageSourceChangeAndDemandPausePreserveSeparateGaps() {
+        var f = fixture();
+        f.monitor.updateRateLimit = 10000;
+        reading(f, 0, 10000);
+        time += 1000;
+        f.monitor.sensor.status = Sensors.Sensor.Error;
+        time += 1000;
+        f.monitor.sensorId = "cpu/cpu0/usage";
+        compare(f.sampler.samples.length, 1);
+        compare(f.sampler.samples[0].status, "loading");
+        reading(f, 25, 1000);
+        time += 1000;
+        f.panelDemand = false;
+        time += 100;
+        f.popupDemand = true;
+        reading(f, 25, 1000);
+        compare(f.panel.renderSegments.length, 2);
+        var otherSource = f.store.samplesFor("cpu", "cpu/cpu0/usage");
+        time += 1000;
+        f.monitor.sensorId = "cpu/all/usage";
+        f.monitor.sensor.acquire(0);
+        f.tick();
+        compare(f.sampler.samples[f.sampler.samples.length - 1].value, null);
+        reading(f, 0, 1000);
+        compare(f.panel.renderSegments.length, 2);
+        compare(otherSource[otherSource.length - 1].value, 25);
+        var inactive = f.store.samplesFor("cpu", "cpu/cpu0/usage");
+        compare(inactive[inactive.length - 1].value, null);
     }
 
     function test_sourceSwapPreservesSeparateSeriesAndGapOnReturn() {
