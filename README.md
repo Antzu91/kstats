@@ -42,6 +42,37 @@ plasmoidviewer --applet .
 For KDE store:
 https://www.opendesktop.org/p/2364289/
 
+## History and sensor availability
+
+Choose a 1, 5, or 15 minute history window in the popup header or widget settings;
+the default is 1 minute. Steady readings advance the graph, and unavailable
+readings or collection pauses leave gaps. Changing the update interval does not
+stretch older samples.
+
+Primary readings collect while their panel module or detail page is visible.
+CPU details and additional GPU readings collect while their page is open. Up to
+15 minutes of history is kept in memory; selecting a longer window shows what
+has actually been collected and does not backfill missing time. Restarting the
+widget clears history.
+
+Missing or stale sensor readings show `N/A`; an actual zero remains a valid
+reading. Sensor monitoring retries after backend failures without changing the
+configured sensor or GPU selection.
+
+## Development checks
+
+Run the QML behavior tests with Qt 6 Quick Test installed:
+
+```sh
+QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software \
+    /usr/lib/qt6/bin/qmltestrunner -input tests
+```
+
+The fixtures use controlled inputs to exercise sensor states and history without
+requiring live monitoring hardware. Adjust the Qt tool path for your distribution.
+CI also checks QML, configuration XML, metadata, and package installation. Live
+Plasma checks remain necessary for hardware recovery and panel/popup behavior.
+
 ## GPU monitoring
 
 Enable `GPU: Show in bar` in the widget settings and choose a `Panel GPU`.

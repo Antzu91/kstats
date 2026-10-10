@@ -44,6 +44,12 @@ jobs:
       - name: Lint QML
         run: /usr/lib/qt6/bin/qmllint --unqualified disable contents/ui/*.qml contents/config/config.qml
 
+      - name: Test sensor states and history
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QT_QUICK_BACKEND: software
+        run: /usr/lib/qt6/bin/qmltestrunner -input tests
+
       - name: Validate config XML
         run: xmllint --noout contents/config/main.xml
 
