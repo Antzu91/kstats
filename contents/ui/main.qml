@@ -15,6 +15,7 @@ PlasmoidItem {
 
     readonly property var cpuUsageSensor: cpuUsage.sensor
     property alias cpuUsageMonitor: cpuUsage
+    property alias cpuDetailHistory: cpuDetailCollector
     property alias cpuCountSensor: cpuCount
     property alias cpuCoreCountSensor: cpuCoreCount
     readonly property var memoryUsageSensor: memoryUsage.sensor
@@ -115,6 +116,7 @@ PlasmoidItem {
     function sampleHistory() {
         var timestamp = Date.now();
         historyStore.advance(timestamp);
+        cpuDetailCollector.advance();
         cpuHistory.sample(timestamp);
         memoryHistory.sample(timestamp);
         diskHistory.sample(timestamp);
@@ -200,6 +202,21 @@ PlasmoidItem {
         active: Plasmoid.configuration.showCpu || root.cpuDetailsVisible
         sensorId: root.configString(Plasmoid.configuration.cpuSensorId)
         updateRateLimit: root.sensorUpdateRate
+    }
+
+    // History belongs to the widget, so the first popup can show data already
+    // collected and closing or changing pages cannot discard the counter baseline.
+    Local.CpuHistory {
+        id: cpuDetailCollector
+        active: Plasmoid.configuration.showCpu || root.cpuDetailsVisible
+        refreshInterval: Math.max(1000, root.sensorUpdateRate)
+        provider: function(callback) {
+            cpuDetailCommand.exec("awk '/^cpu / {print $2,$3,$4,$5,$6,$7,$8,$9,$10,$11}' /proc/stat", callback);
+        }
+    }
+
+    Local.RunCommand {
+        id: cpuDetailCommand
     }
 
     Sensors.Sensor {

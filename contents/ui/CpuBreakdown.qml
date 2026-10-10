@@ -4,13 +4,11 @@ import QtQuick.Layouts
 import "History.js" as History
 
 import org.kde.kirigami as Kirigami
-import "." as Local
 
 Rectangle {
     id: root
 
-    property int refreshInterval: 1500
-    property bool active: false
+    required property CpuHistory detailHistory
     property real windowDuration: 60000
     property real now: 0
     readonly property var userPercent: detailHistory.userPercent
@@ -20,8 +18,6 @@ Rectangle {
         ? i18nc("@info:status", "Unable to read CPU details")
         : detailHistory.errorCode === "format"
             ? i18nc("@info:status", "Unexpected CPU detail format") : ""
-
-    onNowChanged: detailHistory.advance()
 
     radius: Kirigami.Units.cornerRadius
     color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.04)
@@ -34,19 +30,6 @@ Rectangle {
     function percentText(value) {
         return value === null ? i18nc("@label unavailable metric", "N/A")
             : i18nc("@label percent", "%1%", value.toFixed(1));
-    }
-
-    Local.CpuHistory {
-        id: detailHistory
-        active: root.active
-        refreshInterval: root.refreshInterval
-        provider: function(callback) {
-            command.exec("awk '/^cpu / {print $2,$3,$4,$5,$6,$7,$8,$9,$10,$11}' /proc/stat", callback);
-        }
-    }
-
-    Local.RunCommand {
-        id: command
     }
 
     ColumnLayout {

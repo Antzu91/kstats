@@ -49,8 +49,8 @@ TestCase {
         }
     }
     function devices() {
-        return [{ key: "gpu0", usageSensorId: "gpu/gpu0/usage", memorySensorId: "", temperatureSensorId: "" },
-            { key: "gpu1", usageSensorId: "gpu/gpu1/usage", memorySensorId: "", temperatureSensorId: "" }];
+        return [{ key: "gpu0", usageSensorId: "gpu/gpu0/usage", memorySensorId: "gpu/gpu0/usedVram", temperatureSensorId: "gpu/gpu0/temperature" },
+            { key: "gpu1", usageSensorId: "gpu/gpu1/usage", memorySensorId: "gpu/gpu1/usedVram", temperatureSensorId: "gpu/gpu1/temperature" }];
     }
     function init() { time = 100000; }
     function make() {
@@ -61,7 +61,7 @@ TestCase {
     }
     function samples(f, key) { return f.store.samplesFor("gpuUsage/" + key, "gpu/" + key + "/usage"); }
 
-    function test_selectionTransfersDemandOnSameOwner() {
+    function test_selectionKeepsAllDeviceOwners() {
         var f = make();
         f.pool.popupDemand = true;
         var zero = f.pool.monitorFor("gpu0").usage;
@@ -88,6 +88,73 @@ TestCase {
         f.pool.popupDemand = false;
         compare(samples(f, "gpu1").length, oneCount);
         compare(samples(f, "gpu1")[oneCount - 1].value, 25);
+    }
+
+    function allMetrics(fixture) {
+        var result = [];
+        for (var key of ["gpu0", "gpu1"]) {
+            var device = fixture.pool.monitorFor(key);
+            result.push(device.usage, device.memory, device.temperature);
+        }
+        return result;
+    }
+
+    function test_allGpuHistoriesCollectBeforePopupAndAcrossCloseAndSelection() {
+        var f = make();
+        compare(f.pool.popupDemand, false);
+        var metrics = allMetrics(f);
+        var sensors = metrics.map(function(metric) { return metric.sensor; });
+        for (var tick = 0; tick < 5; ++tick) {
+            time += 1000;
+            if (tick === 1) { f.pool.popupDemand = true; }
+            if (tick === 2) { f.pool.selectedDeviceId = "gpu1"; }
+            if (tick === 3) { f.pool.popupDemand = false; }
+            for (var i = 0; i < metrics.length; ++i) {
+                compare(metrics[i].sensor, sensors[i]);
+                verify(metrics[i].collecting);
+                metrics[i].sensor.acquire(i * 10);
+            }
+            f.tick();
+        }
+        for (var j = 0; j < metrics.length; ++j) {
+            var metric = metrics[j];
+            var history = f.store.samplesFor(metric.metricId, metric.sourceKey);
+            compare(history.length, 6); // Initial loading marker plus every tick.
+            compare(history[history.length - 1].value, j * 10);
+            compare(History.segments(history, 60000, time).length, 1);
+            compare(history[1].timestamp, 101000); // Before the first popup open.
+            compare(history[history.length - 1].timestamp, time);
+        }
+    }
+
+    function test_disabledGpuPausesAllHistoriesUnlessPageVisible() {
+        var f = make();
+        var metrics = allMetrics(f);
+        time += 1000;
+        metrics.forEach(function(metric) { metric.sensor.acquire(0); });
+        f.tick();
+        time += 100;
+        f.pool.panelDemand = false;
+        metrics.forEach(function(metric) {
+            compare(metric.collecting, false);
+            compare(metric.sensor, null);
+            var history = f.store.samplesFor(metric.metricId, metric.sourceKey);
+            compare(history[history.length - 1].status, "disabled");
+        });
+        time += 100;
+        f.pool.popupDemand = true;
+        metrics.forEach(function(metric) {
+            verify(metric.collecting);
+            metric.sensor.acquire(0);
+        });
+        time += 1000;
+        f.tick();
+        metrics.forEach(function(metric) {
+            var history = f.store.samplesFor(metric.metricId, metric.sourceKey);
+            compare(History.segments(history, 60000, time).length, 2);
+        });
+        f.pool.popupDemand = false;
+        metrics.forEach(function(metric) { compare(metric.sensor, null); });
     }
 
     function test_rapidCompletePauseRecordsGapWithoutSecondOwner() {

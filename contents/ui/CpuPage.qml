@@ -398,12 +398,11 @@ Item {
         }
 
         Local.CpuBreakdown {
-            active: page.rootItem.cpuDetailsVisible
+            detailHistory: page.rootItem.cpuDetailHistory
             windowDuration: page.rootItem.historyWindowDuration
             now: page.rootItem.historyNow
             Layout.fillWidth: true
             Layout.preferredHeight: Kirigami.Units.gridUnit * 5.8
-            refreshInterval: Math.max(1000, page.rootItem.sensorUpdateRate)
         }
 
         Local.TopApplicationList {

@@ -49,11 +49,18 @@ the default is 1 minute. Steady readings advance the graph, and unavailable
 readings or collection pauses leave gaps. Changing the update interval does not
 stretch older samples.
 
-Primary readings collect while their panel module or detail page is visible.
-CPU details and additional GPU readings collect while their page is open. Up to
-15 minutes of history is kept in memory; selecting a longer window shows what
-has actually been collected and does not backfill missing time. Restarting the
-widget clears history.
+Enabled panel modules keep a rolling 15-minute history in memory, starting when
+the widget loads, even before the popup first opens and after it closes or changes
+tabs. This includes CPU user/system/idle history and utilization, memory, and
+temperature histories for every discovered GPU when the GPU module is enabled.
+The panel GPU selector only chooses which device appears in the panel.
+
+A module disabled in the panel collects history while its detail page is open
+and may pause when hidden. CPU core bars and other values without history remain
+demand-driven. The 1, 5, or 15 minute selector changes only the visible range;
+it does not change collection or clear retained samples. History cannot backfill
+time before the widget starts or while collection is paused, and restarting the
+widget clears it.
 
 Missing or stale sensor readings show `N/A`; an actual zero remains a valid
 reading. Sensor monitoring retries after backend failures without changing the

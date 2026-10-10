@@ -1,15 +1,15 @@
 import QtQuick
 import org.kde.ksysguard.sensors as Sensors
 
-// Exactly one utilization subscription and sampler per device. Selecting the
-// panel GPU transfers demand, not ownership of the source or its history.
+// One owner per device collects every history metric while the GPU module is
+// enabled or its page is visible. Panel selection only chooses what is shown.
 Item {
     id: deviceMonitor
     required property var device
     required property var historyStore
-    property bool selected: false
     property bool panelDemand: false
     property bool popupDemand: false
+    readonly property bool historyDemand: panelDemand || popupDemand
     property int updateRateLimit: 1000
     property Component sensorComponent: Component { Sensors.Sensor {} }
     property alias usage: usage
@@ -20,7 +20,7 @@ Item {
         id: usage
         metricId: "gpuUsage/" + deviceMonitor.device.key
         valueMode: "percent"
-        active: (deviceMonitor.panelDemand && deviceMonitor.selected) || deviceMonitor.popupDemand
+        active: deviceMonitor.historyDemand
         sensorId: deviceMonitor.device.usageSensorId
         updateRateLimit: deviceMonitor.updateRateLimit
         sensorComponent: deviceMonitor.sensorComponent
@@ -30,7 +30,7 @@ Item {
         id: memory
         metricId: "gpuMemory/" + deviceMonitor.device.key
         valueMode: "percent"
-        active: deviceMonitor.popupDemand
+        active: deviceMonitor.historyDemand
         sensorId: deviceMonitor.device.memorySensorId
         updateRateLimit: deviceMonitor.updateRateLimit
         sensorComponent: deviceMonitor.sensorComponent
@@ -39,7 +39,7 @@ Item {
     GpuSensor {
         id: temperature
         metricId: "gpuTemperature/" + deviceMonitor.device.key
-        active: deviceMonitor.popupDemand
+        active: deviceMonitor.historyDemand
         sensorId: deviceMonitor.device.temperatureSensorId
         updateRateLimit: deviceMonitor.updateRateLimit
         sensorComponent: deviceMonitor.sensorComponent

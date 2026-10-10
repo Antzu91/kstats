@@ -26,7 +26,6 @@ Item {
         id: deviceFactory
         GpuDeviceMonitor {
             historyStore: pool.historyStore
-            selected: device.key === pool.selectedDeviceId
             panelDemand: pool.panelDemand
             popupDemand: pool.popupDemand
             updateRateLimit: pool.updateRateLimit
