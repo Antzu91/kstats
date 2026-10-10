@@ -9,6 +9,9 @@ Item {
     id: page
 
     required property var rootItem
+    readonly property bool active: rootItem.networkDetailsVisible
+    property int generation: 0
+    property bool inFlight: false
     property string interfaceName: ""
     property string localIp: i18nc("@info:status", "N/A")
     property string publicIp: i18nc("@info:status", "N/A")
@@ -123,7 +126,19 @@ Item {
     onInterfaceNameChanged: clearRates()
 
     function refreshNetwork() {
+        if (!active || inFlight) {
+            return;
+        }
+        var requestGeneration = generation;
+        inFlight = true;
         netdevCommand.exec("cat /proc/net/dev", function(result) {
+            page.inFlight = false;
+            if (!page.active || requestGeneration !== page.generation) {
+                if (page.active) {
+                    Qt.callLater(page.refreshNetwork);
+                }
+                return;
+            }
             if (result.exitCode !== 0) {
                 page.clearRates();
                 return;
@@ -183,11 +198,16 @@ Item {
             }
 
             var now = Date.now();
-            if (page.lastSampleTime > 0 && page.lastRxBytes >= 0 && page.lastTxBytes >= 0) {
+            if (page.lastSampleTime > 0 && now > page.lastSampleTime
+                    && now - page.lastSampleTime <= Math.max(1000, page.rootItem.sensorUpdateRate) * 2.5
+                    && selected.rx >= page.lastRxBytes && selected.tx >= page.lastTxBytes) {
                 var seconds = Math.max(0.001, (now - page.lastSampleTime) / 1000);
                 page.downloadRate = Math.max(0, (selected.rx - page.lastRxBytes) / seconds);
                 page.uploadRate = Math.max(0, (selected.tx - page.lastTxBytes) / seconds);
                 page.chartTick += 1;
+            } else {
+                page.downloadRate = null;
+                page.uploadRate = null;
             }
 
             page.lastRxBytes = selected.rx;
@@ -221,7 +241,15 @@ Item {
         }
     }
 
-    Component.onCompleted: {
+    onActiveChanged: {
+        generation++;
+        clearRates();
+        if (active) {
+            refreshRoute();
+            refreshNetwork();
+        }
+    }
+    Component.onCompleted: if (active) {
         refreshRoute();
         refreshNetwork();
     }
@@ -229,7 +257,7 @@ Item {
     Timer {
         interval: Math.max(1000, page.rootItem.sensorUpdateRate)
         repeat: true
-        running: page.visible
+        running: page.active
         triggeredOnStart: false
         onTriggered: {
             page.refreshNetwork();
@@ -349,7 +377,7 @@ Item {
                 spacing: Kirigami.Units.smallSpacing
 
                 Controls.Label {
-                    text: i18nc("@label", "Usage History")
+                    text: i18nc("@label history and coverage", "Usage History · %1", page.rootItem.historyCoverageText(page.rootItem.networkDownloadSamples))
                     color: Kirigami.Theme.disabledTextColor
                     font.weight: Font.DemiBold
                     horizontalAlignment: Text.AlignHCenter
@@ -359,10 +387,10 @@ Item {
                 Local.NetworkHistoryChart {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    sampleLimit: page.rootItem.networkHistorySampleLimit
                     uploadSamples: page.rootItem.networkUploadSamples
                     downloadSamples: page.rootItem.networkDownloadSamples
-                    autoSample: false
+                    windowDuration: page.rootItem.historyWindowDuration
+                    now: page.rootItem.historyNow
                     uploadColor: Kirigami.Theme.negativeTextColor
                     downloadColor: Kirigami.Theme.focusColor
                 }
@@ -418,6 +446,7 @@ Item {
         }
 
         Local.TopApplicationList {
+            active: page.active
             Layout.fillWidth: true
             Layout.preferredHeight: implicitHeight
             metric: "network"

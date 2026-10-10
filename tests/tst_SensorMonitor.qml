@@ -142,6 +142,14 @@ TestCase {
         compare(monitor.sensor, null);
     }
 
+    function test_missingOptionalGpuMetricDiffersFromDisabled() {
+        var monitor = createTemporaryObject(monitorFactory, testCase, { sensorId: "", emptyIsUnavailable: true });
+        compare(monitor.status, "unavailable");
+        compare(monitor.value, null);
+        monitor.active = false;
+        compare(monitor.status, "disabled");
+    }
+
     function test_sourceChangeDropsOldReading() {
         var monitor = makeMonitor();
         acquire(monitor, 75);
@@ -205,6 +213,32 @@ TestCase {
         snapshot = monitor.snapshot(time);
         compare(snapshot.status, "stale");
         compare(snapshot.value, null);
+    }
+
+    function test_clockRollbackBeforeFirstAcquisitionRebasesRetry() {
+        var monitor = makeMonitor();
+        time = 1000;
+        monitor.checkHealth(time);
+        var rebasedSensor = monitor.sensor;
+        time = 6000;
+        monitor.checkHealth(time);
+        compare(monitor.status, "unavailable");
+        verify(monitor.sensor !== rebasedSensor);
+    }
+
+    function test_clockRollbackDuringOutageRebasesRetry() {
+        var monitor = makeMonitor();
+        acquire(monitor, 0);
+        time = 200000;
+        monitor.checkHealth(time);
+        compare(monitor.status, "stale");
+        time = 150000; // Still newer than the last successful acquisition.
+        monitor.checkHealth(time);
+        var rebasedSensor = monitor.sensor;
+        time = 155000;
+        monitor.checkHealth(time);
+        compare(monitor.status, "unavailable");
+        verify(monitor.sensor !== rebasedSensor);
     }
 
     function test_increasingIntervalExtendsFreshnessDeadline() {

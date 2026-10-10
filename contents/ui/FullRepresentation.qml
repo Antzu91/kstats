@@ -44,6 +44,15 @@ Controls.Pane {
                 }
             }
 
+            Controls.ComboBox {
+                model: [i18nc("@item:inlistbox history duration", "1 min"),
+                    i18nc("@item:inlistbox history duration", "5 min"),
+                    i18nc("@item:inlistbox history duration", "15 min")]
+                currentIndex: [1, 5, 15].indexOf(full.rootItem.historyWindowMinutes)
+                onActivated: full.rootItem.setHistoryWindowMinutes([1, 5, 15][currentIndex])
+                Accessible.name: i18nc("@label", "History window")
+            }
+
             Controls.ToolButton {
                 icon.name: "utilities-system-monitor"
                 text: i18nc("@action", "Open System Monitor")

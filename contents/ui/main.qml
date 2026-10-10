@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import "History.js" as History
 
 import org.kde.kirigami as Kirigami
 import org.kde.ksysguard.sensors as Sensors
@@ -37,13 +38,19 @@ PlasmoidItem {
     readonly property bool gpuDetailsVisible: detailsVisible && selectedTab === 2
     readonly property bool networkDetailsVisible: detailsVisible && selectedTab === 3
     readonly property bool diskDetailsVisible: detailsVisible && selectedTab === 4
-    property alias gpuUsageMonitor: gpuUsage
+    readonly property var gpuUsageMonitor: gpuPool.selectedUsage
     property int selectedTab: 0
-    readonly property int historySampleLimit: 72
-    readonly property int networkHistorySampleLimit: 48
-    property var memoryUsageSamples: []
-    property var networkUploadSamples: []
-    property var networkDownloadSamples: []
+    readonly property int historyWindowMinutes: [1, 5, 15].indexOf(Number(Plasmoid.configuration.historyWindowMinutes)) >= 0
+        ? Number(Plasmoid.configuration.historyWindowMinutes) : 1
+    readonly property int historyWindowDuration: historyWindowMinutes * 60000
+    readonly property real historyNow: historyStore.now
+    property alias histories: historyStore
+    readonly property var cpuUsageSamples: cpuHistory.samples
+    readonly property var memoryUsageSamples: memoryHistory.samples
+    readonly property var diskUsageSamples: diskHistory.samples
+    readonly property var gpuUsageSamples: historyStore.samplesFor(gpuUsageMonitor.metricId, gpuUsageMonitor.sourceKey)
+    readonly property var networkUploadSamples: uploadHistory.samples
+    readonly property var networkDownloadSamples: downloadHistory.samples
 
     Plasmoid.backgroundHints: PlasmaCore.Types.DefaultBackground | PlasmaCore.Types.ConfigurableBackground
     Plasmoid.title: i18n("KStats")
@@ -63,7 +70,7 @@ PlasmoidItem {
         networkDownload.text,
         networkUpload.text)
         + (Plasmoid.configuration.showGpu
-            ? i18nc("@info:tooltip GPU name and usage", " | %1: %2", selectedGpu ? gpuName(selectedGpu) : i18n("GPU"), gpuUsage.text)
+            ? i18nc("@info:tooltip GPU name and usage", " | %1: %2", selectedGpu ? gpuName(selectedGpu) : i18n("GPU"), root.gpuUsageMonitor.text)
             : "")
 
     function gpuName(device) {
@@ -88,42 +95,32 @@ PlasmoidItem {
         return String(value);
     }
 
-    function sensorPercent(sensor) {
-        if (!sensor || !sensor.enabled || sensor.status !== Sensors.Sensor.Ready) {
-            return null;
+    function setHistoryWindowMinutes(minutes) {
+        if ([1, 5, 15].indexOf(minutes) >= 0) {
+            Plasmoid.configuration.historyWindowMinutes = minutes;
         }
-        return cpuUsage.percentValue(sensor.value, sensor.maximum);
     }
 
-    function appendSample(samples, value, limit, clampPercent) {
-        // The timestamp store replaces this temporary gap policy in the next slice.
-        if (value === null || value === undefined || !isFinite(Number(value))) {
-            return [];
-        }
-        var numeric = Number(value);
-        numeric = clampPercent ? Math.max(0, Math.min(100, numeric)) : Math.max(0, numeric);
+    function historyCoverageText(samples) {
+        var seconds = Math.floor(History.coverageDuration(samples, historyWindowDuration, historyNow) / 1000);
+        return seconds >= 60
+            ? i18nc("@label retained history duration", "%1 min retained", (seconds / 60).toFixed(1))
+            : i18nc("@label retained history duration", "%1 s retained", seconds);
+    }
 
-        var next = samples.slice(0);
-        next.push(numeric);
-        while (next.length > limit) {
-            next.shift();
-        }
-        return next;
+    function gpuMonitors(deviceKey) {
+        return gpuPool.monitorFor(deviceKey);
     }
 
     function sampleHistory() {
-        root.memoryUsageSamples = root.appendSample(root.memoryUsageSamples,
-            memoryUsage.percent,
-            root.historySampleLimit,
-            true);
-        root.networkUploadSamples = root.appendSample(root.networkUploadSamples,
-            networkUpload.value,
-            root.networkHistorySampleLimit,
-            false);
-        root.networkDownloadSamples = root.appendSample(root.networkDownloadSamples,
-            networkDownload.value,
-            root.networkHistorySampleLimit,
-            false);
+        var timestamp = Date.now();
+        historyStore.advance(timestamp);
+        cpuHistory.sample(timestamp);
+        memoryHistory.sample(timestamp);
+        diskHistory.sample(timestamp);
+        uploadHistory.sample(timestamp);
+        downloadHistory.sample(timestamp);
+        gpuPool.sample(timestamp);
     }
 
     function activeCount() {
@@ -186,12 +183,13 @@ PlasmoidItem {
         active: Plasmoid.configuration.showGpu || root.gpuDetailsVisible
     }
 
-    Local.GpuSensor {
-        id: gpuUsage
-        metricId: "gpuUsage"
-        valueMode: "percent"
-        active: Plasmoid.configuration.showGpu || root.gpuDetailsVisible
-        sensorId: root.selectedGpu ? root.selectedGpu.usageSensorId : ""
+    Local.GpuMonitorPool {
+        id: gpuPool
+        historyStore: historyStore
+        devices: root.gpuDevices
+        selectedDeviceId: root.gpuDeviceId
+        panelDemand: Plasmoid.configuration.showGpu
+        popupDemand: root.gpuDetailsVisible
         updateRateLimit: root.sensorUpdateRate
     }
 
@@ -206,12 +204,14 @@ PlasmoidItem {
 
     Sensors.Sensor {
         id: cpuCount
+        enabled: root.cpuDetailsVisible
         sensorId: "cpu/all/cpuCount"
         updateRateLimit: root.sensorUpdateRate
     }
 
     Sensors.Sensor {
         id: cpuCoreCount
+        enabled: root.cpuDetailsVisible
         sensorId: "cpu/all/coreCount"
         updateRateLimit: root.sensorUpdateRate
     }
@@ -266,8 +266,19 @@ PlasmoidItem {
         updateRateLimit: root.sensorUpdateRate
     }
 
+    Local.HistoryStore {
+        id: historyStore
+        sampleInterval: root.sensorUpdateRate
+    }
+
+    Local.HistorySampler { id: cpuHistory; monitor: cpuUsage; store: historyStore }
+    Local.HistorySampler { id: memoryHistory; monitor: memoryUsage; store: historyStore }
+    Local.HistorySampler { id: diskHistory; monitor: diskUsage; store: historyStore }
+    Local.HistorySampler { id: uploadHistory; monitor: networkUpload; store: historyStore; usePercent: false }
+    Local.HistorySampler { id: downloadHistory; monitor: networkDownload; store: historyStore; usePercent: false }
+
     Timer {
-        interval: Math.max(1000, root.sensorUpdateRate)
+        interval: root.sensorUpdateRate
         repeat: true
         running: true
         triggeredOnStart: true

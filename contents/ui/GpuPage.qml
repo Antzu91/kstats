@@ -41,34 +41,10 @@ Item {
                     border.width: 1
                     border.color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08)
 
-                    readonly property var usage: modelData.key === page.rootItem.gpuDeviceId
-                        ? page.rootItem.gpuUsageMonitor : usageSensor
-
-                    Local.GpuSensor {
-                        id: usageSensor
-                        valueMode: "percent"
-
-                        active: page.rootItem.gpuDetailsVisible && gpuCard.modelData.key !== page.rootItem.gpuDeviceId
-                        sensorId: gpuCard.modelData.usageSensorId
-                        updateRateLimit: page.rootItem.sensorUpdateRate
-                    }
-
-                    Local.GpuSensor {
-                        id: memorySensor
-                        valueMode: "percent"
-
-                        active: page.rootItem.gpuDetailsVisible
-                        sensorId: gpuCard.modelData.memorySensorId
-                        updateRateLimit: page.rootItem.sensorUpdateRate
-                    }
-
-                    Local.GpuSensor {
-                        id: temperatureSensor
-
-                        active: page.rootItem.gpuDetailsVisible
-                        sensorId: gpuCard.modelData.temperatureSensorId
-                        updateRateLimit: page.rootItem.sensorUpdateRate
-                    }
+                    readonly property var monitors: page.rootItem.gpuMonitors(modelData.key)
+                    readonly property var usage: monitors ? monitors.usage : null
+                    readonly property var memory: monitors ? monitors.memory : null
+                    readonly property var temperature: monitors ? monitors.temperature : null
 
                     ColumnLayout {
                         id: gpuCardContent
@@ -100,12 +76,15 @@ Item {
                             visible: gpuCard.modelData.usageSensorId.length > 0
                             title: i18nc("@label", "GPU")
                             iconName: "video-display"
-                            primaryValue: gpuCard.usage.text
-                            showSparkline: gpuCard.usage.available
-                            showProgress: gpuCard.usage.available
+                            primaryValue: gpuCard.usage ? gpuCard.usage.text : i18nc("@info:status", "N/A")
+                            showSparkline: gpuCard.usage !== null && gpuCard.usage.available
+                            showProgress: gpuCard.usage !== null && gpuCard.usage.available
                             secondaryValue: i18nc("@label", "Graphics processor usage")
-                            sensorId: usageSensor.sensorId
-                            percent: gpuCard.usage.percent ?? 0
+                            sensorId: gpuCard.modelData.usageSensorId
+                            percent: gpuCard.usage ? (gpuCard.usage.percent ?? 0) : 0
+                            samples: gpuCard.usage ? page.rootItem.histories.samplesFor(gpuCard.usage.metricId, gpuCard.usage.sourceKey) : []
+                            windowDuration: page.rootItem.historyWindowDuration
+                            now: page.rootItem.historyNow
                             accentColor: Kirigami.Theme.negativeTextColor
                         }
 
@@ -113,12 +92,15 @@ Item {
                             visible: gpuCard.modelData.memorySensorId.length > 0
                             title: i18nc("@label", "GPU Memory")
                             iconName: "memory"
-                            primaryValue: memorySensor.text
-                            showSparkline: memorySensor.available
-                            showProgress: memorySensor.available
+                            primaryValue: gpuCard.memory ? gpuCard.memory.text : i18nc("@info:status", "N/A")
+                            showSparkline: gpuCard.memory !== null && gpuCard.memory.available
+                            showProgress: gpuCard.memory !== null && gpuCard.memory.available
                             secondaryValue: i18nc("@label", "Graphics memory used")
-                            sensorId: memorySensor.sensorId
-                            percent: memorySensor.percent ?? 0
+                            sensorId: gpuCard.modelData.memorySensorId
+                            percent: gpuCard.memory ? (gpuCard.memory.percent ?? 0) : 0
+                            samples: gpuCard.memory ? page.rootItem.histories.samplesFor(gpuCard.memory.metricId, gpuCard.memory.sourceKey) : []
+                            windowDuration: page.rootItem.historyWindowDuration
+                            now: page.rootItem.historyNow
                             accentColor: Kirigami.Theme.focusColor
                         }
 
@@ -126,12 +108,15 @@ Item {
                             visible: gpuCard.modelData.temperatureSensorId.length > 0
                             title: i18nc("@label", "GPU Temperature")
                             iconName: "temperature-normal"
-                            primaryValue: temperatureSensor.text
-                            showSparkline: temperatureSensor.available
-                            showProgress: temperatureSensor.available
+                            primaryValue: gpuCard.temperature ? gpuCard.temperature.text : i18nc("@info:status", "N/A")
+                            showSparkline: gpuCard.temperature !== null && gpuCard.temperature.available
+                            showProgress: gpuCard.temperature !== null && gpuCard.temperature.available
                             secondaryValue: i18nc("@label", "Graphics processor temperature")
-                            sensorId: temperatureSensor.sensorId
-                            percent: temperatureSensor.percent ?? 0
+                            sensorId: gpuCard.modelData.temperatureSensorId
+                            percent: gpuCard.temperature ? (gpuCard.temperature.percent ?? 0) : 0
+                            samples: gpuCard.temperature ? page.rootItem.histories.samplesFor(gpuCard.temperature.metricId, gpuCard.temperature.sourceKey) : []
+                            windowDuration: page.rootItem.historyWindowDuration
+                            now: page.rootItem.historyNow
                             accentColor: Kirigami.Theme.neutralTextColor
                         }
                     }

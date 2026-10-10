@@ -9,6 +9,8 @@ import "." as Local
 KCM.SimpleKCM {
     id: root
 
+    property int cfg_historyWindowMinutes: 1
+    property int cfg_historyWindowMinutesDefault
     property alias cfg_updateRateLimit: updateRateLimit.value
     property alias cfg_compactBarLength: compactBarLength.value
     property alias cfg_showCpu: showCpu.checked
@@ -75,6 +77,15 @@ KCM.SimpleKCM {
             valueFromText: function(text) {
                 return Number.parseInt(text);
             }
+        }
+
+        Controls.ComboBox {
+            Kirigami.FormData.label: i18nc("@label", "History window:")
+            model: [i18nc("@item:inlistbox history duration", "1 minute"),
+                i18nc("@item:inlistbox history duration", "5 minutes"),
+                i18nc("@item:inlistbox history duration", "15 minutes")]
+            currentIndex: Math.max(0, [1, 5, 15].indexOf(root.cfg_historyWindowMinutes))
+            onActivated: root.cfg_historyWindowMinutes = [1, 5, 15][currentIndex]
         }
 
         Controls.SpinBox {

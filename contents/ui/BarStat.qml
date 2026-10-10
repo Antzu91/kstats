@@ -12,10 +12,12 @@ RowLayout {
     property string value
     property string valueWidthSample: "100.0%"
     property real percent: 0
+    property var samples: []
+    property real windowDuration: 60000
+    property real now: 0
     property color accentColor: Kirigami.Theme.highlightColor
     property bool showMeter: true
     property bool dataAvailable: true
-    property string historyKey: ""
 
     property string previewMode: "sparkline"
     // Round each slot so nested layouts keep the same gap between modules.
@@ -25,12 +27,6 @@ RowLayout {
         ? Math.ceil(previewMode === "bar" ? Kirigami.Units.gridUnit * 0.85 : Kirigami.Units.gridUnit * 2.2)
         : 0
     readonly property real fixedWidth: labelWidth + valueWidth + (showMeter ? previewWidth + spacing * 2 : spacing)
-
-    onHistoryKeyChanged: {
-        if (sparklineLoader.item) {
-            sparklineLoader.item.samples = [];
-        }
-    }
 
     spacing: Math.max(1, Kirigami.Units.smallSpacing / 4)
     Layout.alignment: Qt.AlignVCenter
@@ -101,8 +97,9 @@ RowLayout {
             anchors.margins: 2
             sourceComponent: Component {
                 Local.Sparkline {
-                    sampleValue: stat.percent
-                    sampleLimit: 24
+                    samples: stat.samples
+                    windowDuration: stat.windowDuration
+                    now: stat.now
                     lineColor: stat.accentColor
                     showFill: true
                 }

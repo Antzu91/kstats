@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls as Controls
 import QtQuick.Layouts
+import "CpuCounters.js" as CpuCounters
 
 import org.kde.kirigami as Kirigami
 import "." as Local
@@ -9,6 +10,14 @@ Rectangle {
     id: root
 
     property int refreshInterval: 1500
+    property bool active: false
+    property var clock: function() { return Date.now(); }
+    property var provider: function(callback) {
+        command.exec("awk '/^cpu[0-9]+ / {print}' /proc/stat", callback);
+    }
+    property bool inFlight: false
+    property int generation: 0
+    property bool completed: false
     property var previous: ({})
     property var cores: []
     property string errorText: ""
@@ -22,22 +31,25 @@ Rectangle {
     implicitHeight: Kirigami.Units.gridUnit * 4.6
 
     function percentText(value) {
-        return i18nc("@label percent", "%1%", value.toFixed(0));
+        return value === null ? i18nc("@info:status", "N/A") : i18nc("@label percent", "%1%", value.toFixed(0));
     }
 
     function averagePercent() {
         if (cores.length === 0) {
-            return 0;
+            return null;
         }
 
         var total = 0;
         for (var i = 0; i < cores.length; i++) {
+            if (cores[i].usage === null) {
+                return null;
+            }
             total += cores[i].usage;
         }
         return total / cores.length;
     }
 
-    function parseOutput(output) {
+    function parseOutput(output, timestamp) {
         var lines = output.trim().length > 0 ? output.trim().split(/\n/) : [];
         var current = {};
         var rows = [];
@@ -48,32 +60,10 @@ Rectangle {
                 continue;
             }
 
-            var values = [];
-            for (var fieldIndex = 1; fieldIndex < fields.length; fieldIndex++) {
-                var value = Number(fields[fieldIndex]);
-                values.push(isFinite(value) ? value : 0);
-            }
-
             var name = fields[0];
-            var user = values[0] + values[1];
-            var system = values[2] + values[5] + values[6];
-            var idle = values[3] + values[4];
-            var steal = values.length > 7 ? values[7] : 0;
-            var total = user + system + idle + steal;
-            var snapshot = {
-                idle: idle,
-                total: total
-            };
-
-            current[name] = snapshot;
-
-            var previousCore = root.previous[name];
-            var usage = 0;
-            if (previousCore !== undefined) {
-                var totalDelta = Math.max(1, snapshot.total - previousCore.total);
-                var idleDelta = Math.max(0, snapshot.idle - previousCore.idle);
-                usage = Math.max(0, Math.min(100, (totalDelta - idleDelta) / totalDelta * 100));
-            }
+            var reading = CpuCounters.observe(root.previous[name], fields.slice(1).join(" "), timestamp, root.refreshInterval);
+            current[name] = reading.baseline;
+            var usage = reading.status === "available" ? 100 - reading.idle : null;
 
             rows.push({
                 name: name,
@@ -91,24 +81,65 @@ Rectangle {
         chart.requestPaint();
     }
 
+    function demandChanged() {
+        if (!completed) {
+            return;
+        }
+        generation++;
+        previous = ({});
+        cores = [];
+        chart.requestPaint();
+        if (active) {
+            refresh();
+        }
+    }
+
     function refresh() {
-        command.exec("awk '/^cpu[0-9]+ / {print}' /proc/stat", function(result) {
-            if (result.exitCode !== 0) {
-                root.errorText = result.stderr.length > 0 ? result.stderr : i18nc("@info:status", "Unable to read CPU cores");
+        if (!active || !completed || inFlight) {
+            return;
+        }
+        var requestGeneration = generation;
+        var requestedAt = clock();
+        var requestedInterval = refreshInterval;
+        inFlight = true;
+        provider(function(result) {
+            root.inFlight = false;
+            if (!root.active || requestGeneration !== root.generation) {
+                if (root.active) {
+                    Qt.callLater(root.refresh);
+                }
                 return;
             }
-
+            var timestamp = root.clock();
+            if (CpuCounters.discontinuity(requestedAt, timestamp, requestedInterval, root.refreshInterval)) {
+                root.previous = ({});
+                root.cores = [];
+                chart.requestPaint();
+                Qt.callLater(root.refresh);
+                return;
+            }
+            if (result.exitCode !== 0) {
+                root.previous = ({});
+                root.cores = [];
+                root.errorText = result.stderr.length > 0 ? result.stderr : i18nc("@info:status", "Unable to read CPU cores");
+                chart.requestPaint();
+                return;
+            }
             root.errorText = "";
-            root.parseOutput(result.stdout);
+            root.parseOutput(result.stdout, timestamp);
         });
     }
 
-    Component.onCompleted: refresh()
+    onActiveChanged: demandChanged()
+    Component.onCompleted: {
+        completed = true;
+        demandChanged();
+    }
 
     Timer {
         interval: root.refreshInterval
         repeat: true
-        running: root.visible
+        running: root.active
         onTriggered: root.refresh()
     }
 
@@ -204,7 +235,7 @@ Rectangle {
                     var yTop = plotTop + plotHeight - barHeight;
 
                     ctx.fillStyle = Kirigami.Theme.positiveTextColor;
-                    ctx.globalAlpha = 0.88;
+                    ctx.globalAlpha = root.cores[i].usage === null ? 0 : 0.88;
                     ctx.fillRect(x, yTop, barWidth, barHeight);
 
                     ctx.fillStyle = Kirigami.Theme.textColor;

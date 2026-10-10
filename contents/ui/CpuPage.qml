@@ -289,7 +289,7 @@ Item {
     Sensors.Sensor {
         id: cpuTemperatureSensor
 
-        enabled: page.temperatureSensorId.length > 0
+        enabled: page.rootItem.cpuDetailsVisible && page.temperatureSensorId.length > 0
         sensorId: page.temperatureSensorId
         updateRateLimit: page.rootItem.sensorUpdateRate
     }
@@ -297,7 +297,7 @@ Item {
     Sensors.Sensor {
         id: cpuFanSensor
 
-        enabled: page.fanSensorId.length > 0
+        enabled: page.rootItem.cpuDetailsVisible && page.fanSensorId.length > 0
         sensorId: page.fanSensorId
         updateRateLimit: page.rootItem.sensorUpdateRate
     }
@@ -391,18 +391,23 @@ Item {
         }
 
         Local.CpuCoreBars {
+            active: page.rootItem.cpuDetailsVisible
             Layout.fillWidth: true
             Layout.preferredHeight: Kirigami.Units.gridUnit * 4.6
             refreshInterval: Math.max(1000, page.rootItem.sensorUpdateRate)
         }
 
         Local.CpuBreakdown {
+            active: page.rootItem.cpuDetailsVisible
+            windowDuration: page.rootItem.historyWindowDuration
+            now: page.rootItem.historyNow
             Layout.fillWidth: true
             Layout.preferredHeight: Kirigami.Units.gridUnit * 5.8
             refreshInterval: Math.max(1000, page.rootItem.sensorUpdateRate)
         }
 
         Local.TopApplicationList {
+            active: page.rootItem.cpuDetailsVisible
             Layout.fillWidth: true
             Layout.preferredHeight: implicitHeight
             metric: "cpu"

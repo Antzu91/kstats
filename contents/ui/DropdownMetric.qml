@@ -14,6 +14,9 @@ ColumnLayout {
     property string secondaryValue
     property string sensorId
     property real percent: 0
+    property var samples: []
+    property real windowDuration: 60000
+    property real now: 0
     property color accentColor: Kirigami.Theme.highlightColor
     property bool showSparkline: true
     property bool showProgress: true
@@ -49,11 +52,11 @@ ColumnLayout {
 
     Local.Sparkline {
         visible: metric.showSparkline
-        autoSample: metric.showSparkline
-        onAutoSampleChanged: samples = []
         Layout.fillWidth: true
         Layout.preferredHeight: Kirigami.Units.gridUnit * 2
-        sampleValue: metric.percent
+        samples: metric.samples
+        windowDuration: metric.windowDuration
+        now: metric.now
         lineColor: metric.accentColor
     }
 

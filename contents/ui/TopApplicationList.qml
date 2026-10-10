@@ -8,6 +8,7 @@ import org.kde.ksysguard.process as Process
 ColumnLayout {
     id: root
 
+    property bool active: visible
     property string metric: "cpu"
     property int limit: 5
     property int refreshInterval: 1500
@@ -89,7 +90,7 @@ ColumnLayout {
     }
 
     function rebuild() {
-        if (!appModel.available) {
+        if (!root.active || !appModel.available) {
             root.applications = [];
             root.maxValue = 1;
             return;
@@ -158,14 +159,14 @@ ColumnLayout {
 
     Component.onCompleted: rebuild()
     onMetricChanged: rebuild()
-    onVisibleChanged: if (visible) {
+    onActiveChanged: if (active) {
         rebuild();
     }
 
     Timer {
         interval: root.refreshInterval
         repeat: true
-        running: root.visible
+        running: root.active
         triggeredOnStart: false
         onTriggered: root.rebuild()
     }
@@ -193,7 +194,7 @@ ColumnLayout {
             "ioCharactersActuallyWrittenRate"
         ]
 
-        enabled: root.visible
+        enabled: root.active
 
         cgroupMapping: {
             "session.slice": "services",

@@ -9,6 +9,9 @@ Item {
     id: page
 
     required property var rootItem
+    readonly property bool active: rootItem.memoryDetailsVisible
+    property int generation: 0
+    property bool inFlight: false
     property var memoryInfo: ({
         valid: false,
         usedPercent: 0,
@@ -44,7 +47,19 @@ Item {
     }
 
     function refreshMemory() {
+        if (!active || inFlight) {
+            return;
+        }
+        var requestGeneration = generation;
+        inFlight = true;
         meminfoCommand.exec("cat /proc/meminfo", function(result) {
+            page.inFlight = false;
+            if (!page.active || requestGeneration !== page.generation) {
+                if (page.active) {
+                    Qt.callLater(page.refreshMemory);
+                }
+                return;
+            }
             if (result.exitCode !== 0) {
                 page.memoryInfo = {
                     valid: false,
@@ -159,12 +174,18 @@ Item {
         }
     }
 
-    Component.onCompleted: refreshMemory()
+    onActiveChanged: {
+        generation++;
+        if (active) {
+            refreshMemory();
+        }
+    }
+    Component.onCompleted: if (active) { refreshMemory(); }
 
     Timer {
         interval: Math.max(1000, page.rootItem.sensorUpdateRate)
         repeat: true
-        running: page.visible
+        running: page.active
         triggeredOnStart: false
         onTriggered: page.refreshMemory()
     }
@@ -257,7 +278,7 @@ Item {
                 spacing: Kirigami.Units.smallSpacing
 
                 Controls.Label {
-                    text: i18nc("@label", "Usage History")
+                    text: i18nc("@label history and coverage", "Usage History · %1", page.rootItem.historyCoverageText(page.rootItem.memoryUsageSamples))
                     color: Kirigami.Theme.disabledTextColor
                     font.weight: Font.DemiBold
                     horizontalAlignment: Text.AlignHCenter
@@ -267,9 +288,9 @@ Item {
                 Local.Sparkline {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    sampleLimit: page.rootItem.historySampleLimit
                     samples: page.rootItem.memoryUsageSamples
-                    autoSample: false
+                    windowDuration: page.rootItem.historyWindowDuration
+                    now: page.rootItem.historyNow
                     lineColor: Kirigami.Theme.focusColor
                     showFill: true
                     showScale: true
@@ -358,6 +379,7 @@ Item {
         }
 
         Local.TopApplicationList {
+            active: page.active
             Layout.fillWidth: true
             Layout.preferredHeight: implicitHeight
             metric: "memory"

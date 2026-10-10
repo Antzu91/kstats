@@ -13,6 +13,7 @@ Item {
     property string sourceKey: sensorId
     property string scopeLabel: ""
     property bool active: true
+    property bool emptyIsUnavailable: false
     property int updateRateLimit: 1000
     property string valueMode: "raw"
     property string unavailableText: i18nc("@info:status", "N/A")
@@ -29,7 +30,8 @@ Item {
     readonly property int generation: state.generation
     readonly property var lastConfirmedAt: state.lastConfirmedAt
     readonly property var lastKnownValue: state.lastKnownValue
-    readonly property string status: !collecting ? "disabled"
+    readonly property string status: !active || !enabled ? "disabled"
+        : sensorId.length === 0 ? (emptyIsUnavailable ? "unavailable" : "disabled")
         : state.timedOut ? (lastKnownValue !== null ? "stale" : "unavailable")
         : sensor && (sensor.status === Sensors.Sensor.Error || sensor.status === Sensors.Sensor.Removed) ? "unavailable"
         : state.invalidReading ? "unavailable"
@@ -56,6 +58,7 @@ Item {
         property var rawReading: null
         property var lastKnownValue: null
         property var lastConfirmedAt: null
+        property real lastObservedAt: 0
         property real startedAt: 0
         property real retryAt: 0
         property int retryDelay: 5000
@@ -113,6 +116,7 @@ Item {
         state.timedOut = false;
         state.retryDelay = staleAfter;
         state.startedAt = clock();
+        state.lastObservedAt = state.startedAt;
         state.retryAt = state.startedAt + staleAfter;
         reload();
     }
@@ -139,6 +143,12 @@ Item {
         if (sensor.status !== state.observedStatus || sensor.status !== Sensors.Sensor.Ready) {
             return;
         }
+        var timestamp = clock();
+        if (timestamp < state.lastObservedAt) {
+            resetSource();
+            return;
+        }
+        state.lastObservedAt = timestamp;
         var raw = numericValue(sensor.value);
         var number = normalizedValue(raw);
         state.invalidReading = number === null || !isFinite(number);
@@ -147,7 +157,7 @@ Item {
         state.rawReading = state.received ? raw : null;
         if (state.received) {
             state.lastKnownValue = number;
-            state.lastConfirmedAt = clock();
+            state.lastConfirmedAt = timestamp;
             state.timedOut = false;
             state.retryDelay = staleAfter;
             state.retryAt = state.lastConfirmedAt + staleAfter;
@@ -158,11 +168,12 @@ Item {
         if (!collecting) {
             return;
         }
-        if (lastConfirmedAt !== null && timestamp < lastConfirmedAt) {
-            // A backwards wall-clock step cannot keep a cached reading healthy.
+        if (timestamp < state.lastObservedAt) {
+            // Rebase deadlines on any rollback, including startup and outages.
             resetSource();
             return;
         }
+        state.lastObservedAt = timestamp;
         if (timestamp >= state.retryAt) {
             state.timedOut = true;
             state.retryAt = timestamp + state.retryDelay;

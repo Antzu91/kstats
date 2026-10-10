@@ -316,12 +316,13 @@ Item {
         });
     }
 
-    Component.onCompleted: refresh()
+    onVisibleChanged: if (visible && page.rootItem.diskDetailsVisible) { refresh(); }
+    Component.onCompleted: if (page.rootItem.diskDetailsVisible) { refresh(); }
 
     Timer {
         interval: Math.max(2500, page.rootItem.sensorUpdateRate * 2)
         repeat: true
-        running: page.visible
+        running: page.rootItem.diskDetailsVisible
         triggeredOnStart: false
         onTriggered: page.refresh()
     }
@@ -670,6 +671,7 @@ Item {
         }
 
         Local.TopApplicationList {
+            active: page.rootItem.diskDetailsVisible
             width: parent.width
             height: implicitHeight
             metric: "disk"

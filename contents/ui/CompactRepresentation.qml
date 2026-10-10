@@ -111,7 +111,9 @@ Item {
                 value: rootItem.cpuUsageMonitor.text
                 percent: rootItem.cpuUsageMonitor.percent ?? 0
                 dataAvailable: rootItem.cpuUsageMonitor.available
-                historyKey: rootItem.cpuUsageMonitor.sourceKey
+                samples: rootItem.cpuUsageSamples
+                windowDuration: rootItem.historyWindowDuration
+                now: rootItem.historyNow
                 accentColor: Kirigami.Theme.positiveTextColor
             }
         }
@@ -126,7 +128,9 @@ Item {
                 value: rootItem.memoryUsageMonitor.text
                 percent: rootItem.memoryUsageMonitor.percent ?? 0
                 dataAvailable: rootItem.memoryUsageMonitor.available
-                historyKey: rootItem.memoryUsageMonitor.sourceKey
+                samples: rootItem.memoryUsageSamples
+                windowDuration: rootItem.historyWindowDuration
+                now: rootItem.historyNow
                 accentColor: Kirigami.Theme.focusColor
             }
         }
@@ -144,7 +148,9 @@ Item {
                 valueWidthSample: i18nc("@label GPU utilization percentage", "%1%", 100)
                 percent: rootItem.gpuUsageMonitor.percent ?? 0
                 dataAvailable: rootItem.gpuUsageMonitor.available
-                historyKey: rootItem.gpuDeviceId
+                samples: rootItem.gpuUsageSamples
+                windowDuration: rootItem.historyWindowDuration
+                now: rootItem.historyNow
                 accentColor: Kirigami.Theme.negativeTextColor
             }
         }
@@ -159,7 +165,9 @@ Item {
                 value: rootItem.diskUsageMonitor.text
                 percent: rootItem.diskUsageMonitor.percent ?? 0
                 dataAvailable: rootItem.diskUsageMonitor.available
-                historyKey: rootItem.diskUsageMonitor.sourceKey
+                samples: rootItem.diskUsageSamples
+                windowDuration: rootItem.historyWindowDuration
+                now: rootItem.historyNow
                 accentColor: Kirigami.Theme.neutralTextColor
                 previewMode: "bar"
             }

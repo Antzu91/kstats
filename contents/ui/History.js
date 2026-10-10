@@ -212,3 +212,18 @@ function nearestSample(samples, timestamp, duration, now) {
     }
     return nearest;
 }
+
+// Retained span inside the selected window; trailing inactivity is not coverage.
+function coverageDuration(samples, duration, now) {
+    var first = null;
+    var last = null;
+    for (var i = 0; i < samples.length; ++i) {
+        var point = samples[i];
+        if (point.status === "available" && validValue(point.value) && validTime(point.timestamp)) {
+            first = first === null ? point.timestamp : Math.min(first, point.timestamp);
+            last = last === null ? point.timestamp : Math.max(last, point.timestamp);
+        }
+    }
+    return first === null || !validTime(now) ? 0
+        : Math.max(0, Math.min(now, last) - Math.max(now - durationOrDefault(duration), first));
+}
