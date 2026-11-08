@@ -41,6 +41,13 @@
         <entry name="cpuSensorId" type="String">
             <default>cpu/all/usage</default>
         </entry>
+        <!-- auto, off, or a sensor ID chosen in settings. -->
+        <entry name="cpuTemperatureSensor" type="String">
+            <default>auto</default>
+        </entry>
+        <entry name="cpuFanSensor" type="String">
+            <default>auto</default>
+        </entry>
         <entry name="memorySensorId" type="String">
             <default>memory/physical/usedPercent</default>
         </entry>

@@ -9,7 +9,8 @@ Item {
     id: listing
 
     property var keyFromSensorId: function(sensorId) { return ""; }
-    // [{ key, name }] sorted by name; name is the sensor tree's object label.
+    // [{ key, name, label }] sorted by name: name is the owning object's label
+    // (an interface, volume or chip) and label the matching sensor's own label.
     property var entries: []
     readonly property var keys: entries.map(function(entry) { return entry.key; })
     readonly property var sensorTree: treeLoader.item
@@ -36,7 +37,7 @@ Item {
             }
             var key = keyFromSensorId(String(sensorTree.data(index, Sensors.SensorTreeModel.SensorId) || ""));
             if (key.length > 0 && !found.some(function(entry) { return entry.key === key; })) {
-                found.push({ key: key, name: parentName.length > 0 ? parentName : key });
+                found.push({ key: key, name: parentName.length > 0 ? parentName : key, label: display });
             }
         }
     }

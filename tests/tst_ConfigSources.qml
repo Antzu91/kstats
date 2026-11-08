@@ -30,7 +30,8 @@ TestCase {
     // The KCM always injects stored values; start from the schema defaults.
     function make(properties) {
         compare(pageComponent.status, Component.Ready, pageComponent.errorString());
-        var initial = { cfg_networkSource: "all",
+        // Sized like the settings window, so popups have room to centre.
+        var initial = { width: 600, height: 900, cfg_networkSource: "all",
             cfg_networkDownloadSensorId: "network/all/download",
             cfg_networkUploadSensorId: "network/all/upload",
             cfg_diskSource: "all",
@@ -119,5 +120,53 @@ TestCase {
         compare(page.effectiveDiskSource, "volume:1792e22e-bc5e");
         compare(diskKeys(page), ["all", "volume:1792e22e-bc5e", "custom"]);
         compare(page.diskChoices[1].name, "1792e22e-bc5e (unavailable)");
+    }
+
+    function test_cpuSensorModes() {
+        var page = make({ cfg_cpuTemperatureSensor: "auto", cfg_cpuFanSensor: "lmsensors/it8686-isa-0a40/fan1" });
+        compare(page.cpuSensorModeIndex(page.cfg_cpuTemperatureSensor), 0);
+        compare(page.cpuSensorModeIndex(page.cfg_cpuFanSensor), 2);
+        compare(page.cpuSensorChoices(page.cfg_cpuFanSensor)[2], "Sensor: lmsensors/it8686-isa-0a40/fan1");
+        page.activateCpuSensorMode("temperature", 1, page.cfg_cpuTemperatureSensor);
+        compare(page.cfg_cpuTemperatureSensor, "off");
+        page.activateCpuSensorMode("fan", 0, page.cfg_cpuFanSensor);
+        compare(page.cfg_cpuFanSensor, "auto");
+    }
+
+    function test_cpuSensorPickerChoosesAndCancels() {
+        var page = make({ cfg_cpuTemperatureSensor: "auto" });
+        var picker = page.sensorPicker;
+        verify(!picker.preview.enabled);
+        page.activateCpuSensorMode("temperature", 2, page.cfg_cpuTemperatureSensor);
+        tryCompare(picker, "visible", true);
+        picker.entries = [
+            { key: "lmsensors/k10temp-pci-00c3/temp1", name: "k10temp-pci-00c3", label: "Tctl" },
+            { key: "lmsensors/nct6799-isa-0290/fan1", name: "nct6799-isa-0290", label: "CPU Fan" }
+        ];
+        // The picker opened filtered to temperatures.
+        compare(picker.filteredEntries.length, 1);
+        picker.selectedSensorId = "lmsensors/k10temp-pci-00c3/temp1";
+        verify(picker.preview.enabled);
+        picker.reject();
+        tryCompare(picker, "visible", false);
+        compare(page.cfg_cpuTemperatureSensor, "auto");
+        // Closing stops the preview subscription.
+        verify(!picker.preview.enabled);
+
+        page.activateCpuSensorMode("temperature", 2, page.cfg_cpuTemperatureSensor);
+        tryCompare(picker, "visible", true);
+        picker.selectedSensorId = "lmsensors/k10temp-pci-00c3/temp1";
+        picker.accept();
+        compare(page.cfg_cpuTemperatureSensor, "lmsensors/k10temp-pci-00c3/temp1");
+        compare(page.cpuSensorModeIndex(page.cfg_cpuTemperatureSensor), 2);
+    }
+
+    function test_cpuSensorPickerIgnoresInvalidIds() {
+        var page = make({ cfg_cpuFanSensor: "auto" });
+        page.activateCpuSensorMode("fan", 2, page.cfg_cpuFanSensor);
+        tryCompare(page.sensorPicker, "visible", true);
+        page.sensorPicker.selectedSensorId = "not a sensor";
+        page.sensorPicker.accept();
+        compare(page.cfg_cpuFanSensor, "auto");
     }
 }

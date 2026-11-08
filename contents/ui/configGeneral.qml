@@ -4,6 +4,7 @@ import QtQuick.Layouts
 
 import org.kde.kcmutils as KCM
 import org.kde.kirigami as Kirigami
+import "CpuSensorChoice.js" as CpuSensorChoice
 import "DiskSource.js" as DiskSource
 import "NetworkSource.js" as NetworkSource
 import "." as Local
@@ -21,6 +22,8 @@ KCM.SimpleKCM {
     property string cfg_gpuDeviceId: "gpu0"
     property string cfg_networkSource: "all"
     property string cfg_diskSource: "all"
+    property string cfg_cpuTemperatureSensor: "auto"
+    property string cfg_cpuFanSensor: "auto"
     property alias cfg_showDisk: showDisk.checked
     property alias cfg_showNetwork: showNetwork.checked
     property alias cfg_publicIpLookup: publicIpLookup.checked
@@ -42,6 +45,8 @@ KCM.SimpleKCM {
     property string cfg_gpuDeviceIdDefault
     property string cfg_networkSourceDefault
     property string cfg_diskSourceDefault
+    property string cfg_cpuTemperatureSensorDefault
+    property string cfg_cpuFanSensorDefault
     property bool cfg_showDiskDefault
     property bool cfg_showNetworkDefault
     property bool cfg_publicIpLookupDefault
@@ -99,6 +104,48 @@ KCM.SimpleKCM {
         }
         choices.push({ key: "custom", name: i18nc("@item:inlistbox disk source", "Custom sensor IDs") });
         return choices;
+    }
+
+    // Picker target: "temperature" or "fan".
+    property string sensorPickerTarget: ""
+    property Local.SensorPickerDialog sensorPicker: Local.SensorPickerDialog {
+        // A popup without a visual parent cannot centre itself (binding loop on y).
+        parent: root
+        onSensorChosen: sensorId => root.setCpuSensor(root.sensorPickerTarget, sensorId)
+    }
+
+    function cpuSensorModeIndex(setting) {
+        var mode = CpuSensorChoice.selection(setting).mode;
+        return mode === "off" ? 1 : mode === "manual" ? 2 : 0;
+    }
+
+    function cpuSensorChoices(setting) {
+        var choice = CpuSensorChoice.selection(setting);
+        return [i18nc("@item:inlistbox sensor selection", "Automatic"),
+            i18nc("@item:inlistbox sensor selection", "Off"),
+            choice.mode === "manual"
+                ? i18nc("@item:inlistbox chosen sensor ID", "Sensor: %1", choice.sensorId)
+                : i18nc("@item:inlistbox", "Choose sensor…")];
+    }
+
+    function setCpuSensor(target, setting) {
+        if (target === "temperature") {
+            root.cfg_cpuTemperatureSensor = setting;
+        } else if (target === "fan") {
+            root.cfg_cpuFanSensor = setting;
+        }
+    }
+
+    function activateCpuSensorMode(target, index, currentSetting) {
+        if (index === 0) {
+            setCpuSensor(target, CpuSensorChoice.automatic);
+        } else if (index === 1) {
+            setCpuSensor(target, CpuSensorChoice.disabled);
+        } else {
+            root.sensorPickerTarget = target;
+            root.sensorPicker.openWith(target === "fan" ? "fan" : "temp",
+                CpuSensorChoice.selection(currentSetting).sensorId);
+        }
     }
 
     function selectDiskSource(key) {
@@ -191,6 +238,35 @@ KCM.SimpleKCM {
             id: showCpu
             Kirigami.FormData.label: i18nc("@label", "CPU:")
             text: i18nc("@option:check", "Show in bar")
+        }
+
+        // Choosing a sensor opens the picker; cancelling it keeps the old choice.
+        Controls.ComboBox {
+            id: cpuTemperatureMode
+            Kirigami.FormData.label: i18nc("@label", "CPU temperature:")
+            Layout.fillWidth: true
+            Layout.minimumWidth: Kirigami.Units.gridUnit * 12
+            model: root.cpuSensorChoices(root.cfg_cpuTemperatureSensor)
+            currentIndex: root.cpuSensorModeIndex(root.cfg_cpuTemperatureSensor)
+            onActivated: index => {
+                root.activateCpuSensorMode("temperature", index, root.cfg_cpuTemperatureSensor);
+                currentIndex = Qt.binding(() => root.cpuSensorModeIndex(root.cfg_cpuTemperatureSensor));
+            }
+            Controls.ToolTip.visible: hovered
+            Controls.ToolTip.text: i18nc("@info:tooltip", "Automatic picks the most likely CPU sensor and switches only if it disappears. A chosen sensor stays selected and shows N/A while missing.")
+        }
+
+        Controls.ComboBox {
+            id: cpuFanMode
+            Kirigami.FormData.label: i18nc("@label", "CPU fan:")
+            Layout.fillWidth: true
+            Layout.minimumWidth: Kirigami.Units.gridUnit * 12
+            model: root.cpuSensorChoices(root.cfg_cpuFanSensor)
+            currentIndex: root.cpuSensorModeIndex(root.cfg_cpuFanSensor)
+            onActivated: index => {
+                root.activateCpuSensorMode("fan", index, root.cfg_cpuFanSensor);
+                currentIndex = Qt.binding(() => root.cpuSensorModeIndex(root.cfg_cpuFanSensor));
+            }
         }
 
         Controls.CheckBox {

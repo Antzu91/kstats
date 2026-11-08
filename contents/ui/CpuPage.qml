@@ -4,6 +4,7 @@ import QtQuick.Layouts
 
 import org.kde.kirigami as Kirigami
 import org.kde.ksysguard.sensors as Sensors
+import "CpuSensorChoice.js" as CpuSensorChoice
 import "." as Local
 
 Item {
@@ -11,11 +12,13 @@ Item {
 
     required property var rootItem
     property string cpuModel: ""
-    property string temperatureSensorId: ""
-    property string fanSensorId: ""
-    property bool temperatureDiscoveryLocked: false
-    property bool fanDiscoveryLocked: false
-    readonly property bool hardwareDiscoveryLocked: temperatureDiscoveryLocked && fanDiscoveryLocked
+    readonly property var temperatureChoice: CpuSensorChoice.selection(rootItem.cpuTemperatureSetting)
+    readonly property var fanChoice: CpuSensorChoice.selection(rootItem.cpuFanSetting)
+    // Automatic candidates; rescanned whenever the sensor tree changes.
+    property string discoveredTemperatureSensorId: ""
+    property string discoveredFanSensorId: ""
+    readonly property string temperatureSensorId: CpuSensorChoice.resolvedSensorId(temperatureChoice, discoveredTemperatureSensorId)
+    readonly property string fanSensorId: CpuSensorChoice.resolvedSensorId(fanChoice, discoveredFanSensorId)
 
     clip: true
     Layout.fillWidth: true
@@ -25,7 +28,10 @@ Item {
         return page.cpuModel.length > 0 ? page.cpuModel : i18nc("@label fallback CPU title", "Processor");
     }
 
-    function optionalSensorText(sensor, sensorId) {
+    function optionalSensorText(sensor, sensorId, choice) {
+        if (choice.mode === "off") {
+            return i18nc("@info:status", "Off");
+        }
         if (sensorId.length === 0) {
             return i18nc("@info:status", "N/A");
         }
@@ -72,97 +78,7 @@ Item {
         return String(value || "").trim();
     }
 
-    function isTemplateSensorId(sensorId) {
-        var id = String(sensorId || "");
-        return id.indexOf("\\") >= 0
-            || id.indexOf("[") >= 0
-            || id.indexOf("]") >= 0
-            || id.indexOf("(") >= 0
-            || id.indexOf(")") >= 0
-            || id.indexOf("*") >= 0
-            || id.indexOf("+") >= 0;
-    }
-
-    function sensorSearchText(sensorId, pathNames) {
-        return (String(sensorId || "") + " " + pathNames.join(" ")).toLowerCase();
-    }
-
-    function hasAny(text, needles) {
-        for (var i = 0; i < needles.length; i++) {
-            if (text.indexOf(needles[i]) >= 0) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    function hardwareScore(sensorId, pathNames, metric) {
-        if (page.isTemplateSensorId(sensorId)) {
-            return 0;
-        }
-
-        var text = page.sensorSearchText(sensorId, pathNames);
-        if (page.hasAny(text, ["gpu", "graphics", "amdgpu", "radeon", "nvidia", "nouveau", "vram", "nvme", "ssd", "hdd", "disk", "drive", "battery"])) {
-            return 0;
-        }
-
-        if (metric === "temperature") {
-            if (page.hasAny(text, ["fan", "rpm", "voltage", "power", "clock", "frequency"])) {
-                return 0;
-            }
-
-            var temperatureScore = 0;
-            if (page.hasAny(text, ["temperature", " temp", "/temp", "temp1", "tctl", "tdie", "package", "package_id", "package id", "cputin", "coretemp", "k10temp", "zenpower", "cpu_thermal", "cpu thermal"])) {
-                temperatureScore += 20;
-            }
-            if (page.hasAny(text, ["cpu", "processor"])) {
-                temperatureScore += 25;
-            }
-            if (page.hasAny(text, ["package", "package_id", "package id", "tctl", "tdie"])) {
-                temperatureScore += 40;
-            }
-            if (page.hasAny(text, ["coretemp", "k10temp", "zenpower"])) {
-                temperatureScore += 20;
-            }
-            return temperatureScore;
-        }
-
-        if (metric === "fan") {
-            if (!page.hasAny(text, ["fan", "rpm"])) {
-                return 0;
-            }
-
-            var fanScore = 10;
-            if (page.hasAny(text, ["cpu", "processor", "cpu_fan", "cpu fan"])) {
-                fanScore += 50;
-            }
-            if (page.hasAny(text, ["fan1", "fan 1"])) {
-                fanScore += 8;
-            }
-            if (page.hasAny(text, ["pump", "aio"])) {
-                fanScore -= 20;
-            }
-            return fanScore;
-        }
-
-        return 0;
-    }
-
-    function considerHardwareSensor(best, sensorId, pathNames) {
-        var temperatureScore = page.hardwareScore(sensorId, pathNames, "temperature");
-        if (temperatureScore > best.temperatureScore) {
-            best.temperatureScore = temperatureScore;
-            best.temperatureSensorId = sensorId;
-        }
-
-        var fanScore = page.hardwareScore(sensorId, pathNames, "fan");
-        if (fanScore > best.fanScore) {
-            best.fanScore = fanScore;
-            best.fanSensorId = sensorId;
-        }
-    }
-
-    function collectHardwareSensors(parentIndex, pathNames, best) {
+    function collectSensors(parentIndex, pathNames, entries) {
         var rows = parentIndex === undefined ? cpuSensorTree.rowCount() : cpuSensorTree.rowCount(parentIndex);
         for (var row = 0; row < rows; row++) {
             var index = parentIndex === undefined ? cpuSensorTree.index(row, 0) : cpuSensorTree.index(row, 0, parentIndex);
@@ -174,42 +90,30 @@ Item {
             }
 
             if (sensorId.length > 0) {
-                page.considerHardwareSensor(best, sensorId, nextPath);
+                entries.push({ sensorId: sensorId, pathNames: nextPath });
             } else {
-                page.collectHardwareSensors(index, nextPath, best);
+                page.collectSensors(index, nextPath, entries);
             }
         }
     }
 
     function rebuildHardwareSensors() {
-        if (page.hardwareDiscoveryLocked) {
+        if (temperatureChoice.mode !== "auto" && fanChoice.mode !== "auto") {
             return;
         }
-
-        var best = {
-            temperatureSensorId: "",
-            temperatureScore: 0,
-            fanSensorId: "",
-            fanScore: 0
-        };
-        page.collectHardwareSensors(undefined, [], best);
-
-        if (!page.temperatureDiscoveryLocked && best.temperatureScore > 0) {
-            page.temperatureSensorId = best.temperatureSensorId;
-            page.temperatureDiscoveryLocked = true;
-        }
-        if (!page.fanDiscoveryLocked && best.fanScore > 0) {
-            page.fanSensorId = best.fanSensorId;
-            page.fanDiscoveryLocked = true;
-        }
+        var entries = [];
+        page.collectSensors(undefined, [], entries);
+        // Automatic keeps a sensor while it exists and recovers when it vanishes.
+        page.discoveredTemperatureSensorId = CpuSensorChoice.automaticSensor(page.discoveredTemperatureSensorId, entries, "temperature");
+        page.discoveredFanSensorId = CpuSensorChoice.automaticSensor(page.discoveredFanSensorId, entries, "fan");
     }
 
     function scheduleHardwareDiscovery() {
-        if (page.hardwareDiscoveryLocked) {
-            return;
-        }
         hardwareDiscoveryTimer.restart();
     }
+
+    onTemperatureChoiceChanged: scheduleHardwareDiscovery()
+    onFanChoiceChanged: scheduleHardwareDiscovery()
 
     Component.onCompleted: {
         page.loadCpuModel();
@@ -357,13 +261,13 @@ Item {
 
                     CpuSummaryRow {
                         label: i18nc("@label", "Temperature")
-                        value: page.optionalSensorText(cpuTemperatureSensor, page.temperatureSensorId)
+                        value: page.optionalSensorText(cpuTemperatureSensor, page.temperatureSensorId, page.temperatureChoice)
                         markerColor: Kirigami.Theme.neutralTextColor
                     }
 
                     CpuSummaryRow {
                         label: i18nc("@label", "Fan")
-                        value: page.optionalSensorText(cpuFanSensor, page.fanSensorId)
+                        value: page.optionalSensorText(cpuFanSensor, page.fanSensorId, page.fanChoice)
                         markerColor: Kirigami.Theme.visitedLinkColor
                     }
 

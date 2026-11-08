@@ -18,6 +18,8 @@ PlasmoidItem {
     property alias cpuDetailHistory: cpuDetailCollector
     property alias cpuCountSensor: cpuCount
     property alias cpuCoreCountSensor: cpuCoreCount
+    readonly property string cpuTemperatureSetting: configString(Plasmoid.configuration.cpuTemperatureSensor)
+    readonly property string cpuFanSetting: configString(Plasmoid.configuration.cpuFanSensor)
     readonly property var memoryUsageSensor: memoryUsage.sensor
     property alias memoryUsageMonitor: memoryUsage
     readonly property var diskUsageSensor: diskUsage.sensor

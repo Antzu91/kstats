@@ -35,6 +35,9 @@ TestCase {
             id: fakeRoot
 
             property int sensorUpdateRate: 1000
+            // A manual sensor that does not exist, and a disabled one.
+            property string cpuTemperatureSetting: "lmsensors/missing-isa-0000/temp1"
+            property string cpuFanSetting: "off"
             property int selectedTab: 0
             property bool expanded: true
             property var gpuDevices: []

@@ -66,6 +66,19 @@ Missing or stale sensor readings show `N/A`; an actual zero remains a valid
 reading. Sensor monitoring retries after backend failures without changing the
 configured sensor or GPU selection.
 
+## CPU temperature and fan
+
+`CPU temperature` and `CPU fan` in the widget settings choose the sensors shown on
+the CPU page:
+
+- **Automatic** (default) picks the most likely CPU package temperature and CPU
+  fan. It keeps that sensor while it exists and picks again only if it disappears,
+  for example after a driver or hardware change.
+- **Off** hides the reading.
+- **Choose sensor…** opens a searchable list of KSystemStats sensors with the
+  highlighted sensor's live value, plus a field for any sensor ID. A chosen sensor
+  stays selected and shows `N/A` while it is missing.
+
 ## Panel tooltips and disk activity
 
 Hovering a panel module shows a tooltip for that module only: CPU usage with its
