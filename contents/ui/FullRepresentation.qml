@@ -19,6 +19,34 @@ Controls.Pane {
 
     padding: Kirigami.Units.largeSpacing
 
+    // Moves through tabs in the configured module order, wrapping around.
+    function cycleTab(delta) {
+        var order = full.rootItem.moduleOrder;
+        var index = order.indexOf(ModuleCatalog.moduleForPage(full.currentTab));
+        var next = order[((index < 0 ? 0 : index) + delta + order.length) % order.length];
+        full.rootItem.selectTab(ModuleCatalog.pageIndex(next));
+    }
+
+    function focusCurrentTab() {
+        for (var i = 0; i < tabRepeater.count; ++i) {
+            var pill = tabRepeater.itemAt(i) as Local.TabPill;
+            if (pill && pill.checked) {
+                pill.forceActiveFocus(Qt.TabFocusReason);
+                return;
+            }
+        }
+    }
+
+    Shortcut {
+        sequences: ["Ctrl+Tab", "Ctrl+PgDown"]
+        onActivated: full.cycleTab(1)
+    }
+
+    Shortcut {
+        sequences: ["Ctrl+Shift+Tab", "Ctrl+Backtab", "Ctrl+PgUp"]
+        onActivated: full.cycleTab(-1)
+    }
+
     component PageScroll: Controls.ScrollView {
         contentWidth: availableWidth
         clip: true
@@ -73,6 +101,7 @@ Controls.Pane {
                 // Follows the configured module order, including modules hidden
                 // from the panel; each pill resolves its page from the module ID.
                 Repeater {
+                    id: tabRepeater
                     model: full.rootItem.moduleOrder
 
                     delegate: Local.TabPill {
@@ -85,6 +114,14 @@ Controls.Pane {
                         accentColor: Kirigami.Theme[info.colorRole]
                         text: info.tabLabel
                         onClicked: full.rootItem.selectTab(pageIndex)
+                        Keys.onLeftPressed: {
+                            full.cycleTab(-1);
+                            full.focusCurrentTab();
+                        }
+                        Keys.onRightPressed: {
+                            full.cycleTab(1);
+                            full.focusCurrentTab();
+                        }
                     }
                 }
             }

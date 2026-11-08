@@ -219,4 +219,35 @@ TestCase {
             compare(scroll.contentChildren[0].height, scroll.availableHeight, name);
         });
     }
+
+    function test_keyboardCyclesTabsInConfiguredOrder() {
+        // Fixture order: network, disk, cpu, gpu, memory.
+        var fixture = makePopup();
+        fixture.root.selectedTab = 0;
+        keyClick(Qt.Key_Tab, Qt.ControlModifier);
+        compare(fixture.root.selectedTab, 2);
+        keyClick(Qt.Key_PageDown, Qt.ControlModifier);
+        compare(fixture.root.selectedTab, 1);
+        keyClick(Qt.Key_PageDown, Qt.ControlModifier);
+        compare(fixture.root.selectedTab, 3);
+        keyClick(Qt.Key_PageUp, Qt.ControlModifier);
+        compare(fixture.root.selectedTab, 1);
+    }
+
+    function test_tabsActivateWithKeysAndStayHighlighted() {
+        var fixture = makePopup();
+        fixture.root.selectedTab = 0;
+        fixture.root.popup.focusCurrentTab();
+        var current = fixture.root.popup.Window.activeFocusItem;
+        verify(current !== null && current.checked);
+        // Re-activating the current tab keeps it highlighted.
+        keyClick(Qt.Key_Return);
+        compare(fixture.root.selectedTab, 0);
+        verify(current.checked);
+        keyClick(Qt.Key_Right);
+        compare(fixture.root.selectedTab, 2);
+        verify(fixture.root.popup.Window.activeFocusItem.checked);
+        keyClick(Qt.Key_Left);
+        compare(fixture.root.selectedTab, 0);
+    }
 }

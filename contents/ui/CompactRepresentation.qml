@@ -83,6 +83,19 @@ Item {
         Layout.preferredHeight: compact.height
         implicitWidth: fixedWidth
         implicitHeight: Layout.preferredHeight
+        // Keyboard users reach each module with Tab and open it with Enter or Space.
+        activeFocusOnTab: true
+        Accessible.role: Accessible.Button
+        Accessible.name: target.toolTipTitle
+        Accessible.description: target.toolTipText
+        Accessible.onPressAction: compact.rootItem.toggleTab(target.tabIndex)
+        Keys.onPressed: event => {
+            if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+                    || event.key === Qt.Key_Space || event.key === Qt.Key_Select) {
+                compact.rootItem.toggleTab(target.tabIndex);
+                event.accepted = true;
+            }
+        }
 
         Rectangle {
             anchors.fill: parent
@@ -92,8 +105,9 @@ Item {
                 : targetMouse.containsMouse
                     ? Qt.rgba(target.accentColor.r, target.accentColor.g, target.accentColor.b, 0.10)
                     : "transparent"
-            border.width: target.active ? 1 : 0
-            border.color: Qt.rgba(target.accentColor.r, target.accentColor.g, target.accentColor.b, 0.32)
+            border.width: target.activeFocus ? 2 : target.active ? 1 : 0
+            border.color: target.activeFocus ? Kirigami.Theme.focusColor
+                : Qt.rgba(target.accentColor.r, target.accentColor.g, target.accentColor.b, 0.32)
         }
 
         RowLayout {
@@ -136,7 +150,17 @@ Item {
         height: width
         visible: !compact.rootItem.panelModulesVisible
         source: "utilities-system-monitor"
-        active: fallbackMouse.containsMouse
+        active: fallbackMouse.containsMouse || activeFocus
+        activeFocusOnTab: visible
+        Accessible.role: Accessible.Button
+        Accessible.name: i18n("KStats")
+        Accessible.onPressAction: compact.rootItem.expanded = !compact.rootItem.expanded
+        Keys.onPressed: event => {
+            if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+                compact.rootItem.expanded = !compact.rootItem.expanded;
+                event.accepted = true;
+            }
+        }
 
         MouseArea {
             id: fallbackMouse

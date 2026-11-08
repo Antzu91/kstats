@@ -80,6 +80,13 @@ only display styles and labels, never visibility, order, fonts, or sensors.
 the same order; a module hidden from the panel keeps its popup tab. With every
 module hidden, the panel shows the KStats icon, which still opens the popup.
 
+## Keyboard
+
+Panel modules are buttons: reach them with Tab and open their page with Enter or
+Space. In the popup, Ctrl+Tab and Ctrl+Shift+Tab (or Ctrl+PgDown and Ctrl+PgUp)
+switch tabs in the configured order, arrow keys move between focused tabs, and
+Escape closes the popup.
+
 ## CPU temperature and fan
 
 `CPU temperature` and `CPU fan` in the widget settings choose the sensors shown on
