@@ -68,8 +68,13 @@ configured sensor or GPU selection.
 
 ## Panel modules and order
 
-`Bar Modules` in the widget settings choose which modules appear in the panel, and
-`Module Order` sets their order with Move up and Move down. The popup tabs follow
+`Bar Modules` in the widget settings choose which modules appear in the panel,
+how each one is drawn, and whether it shows its label. CPU, memory, GPU, and disk
+can show a number, a graph, both, or a bar; network can show its rates, an
+upload/download graph, or both. `Monochrome panel` draws labels, graphs, and bars
+in the text color. Readings keep a fixed width, and a graph without its number
+shows `N/A` itself when data is missing. `Module Order` sets the order with Move
+up and Move down. The popup tabs follow
 the same order; a module hidden from the panel keeps its popup tab. With every
 module hidden, the panel shows the KStats icon, which still opens the popup.
 

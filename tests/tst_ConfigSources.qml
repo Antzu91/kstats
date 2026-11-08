@@ -178,4 +178,13 @@ TestCase {
         page.moveModule("cpu", -1);
         compare(page.cfg_moduleOrder, "cpu,memory,gpu,network,disk");
     }
+
+    function test_presentationDefaultsAndEdits() {
+        var page = make();
+        compare(page.cfg_cpuPresentation, "numberGraph");
+        compare(page.cfg_diskPresentation, "bar");
+        compare(page.cfg_networkPresentation, "numbers");
+        compare(page.cfg_monochrome, false);
+        compare(page.presentationLabel("numbersGraph"), "Numbers and graph");
+    }
 }

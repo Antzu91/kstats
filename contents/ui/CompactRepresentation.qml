@@ -5,6 +5,7 @@ import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.core as PlasmaCore
 import org.kde.plasma.plasmoid
+import "PanelPresentation.js" as PanelPresentation
 import "." as Local
 
 Item {
@@ -20,6 +21,20 @@ Item {
     readonly property real adaptiveBarLength: row.implicitWidth
     readonly property real fixedWidth: Math.max(minimumBarWidth, hasConfiguredBarLength ? configuredBarLength : adaptiveBarLength)
     readonly property real contentWidth: Math.max(0, hasConfiguredBarLength ? fixedWidth - horizontalPadding * 2 : fixedWidth)
+
+    readonly property bool monochrome: Plasmoid.configuration.monochrome === true
+    readonly property int labelFontSize: Number(Plasmoid.configuration.barLabelFontSize) || 0
+    readonly property int valueFontSize: Number(Plasmoid.configuration.barValueFontSize) || 0
+    readonly property var cpuParts: PanelPresentation.parts(PanelPresentation.presentation("cpu", Plasmoid.configuration.cpuPresentation))
+    readonly property var memoryParts: PanelPresentation.parts(PanelPresentation.presentation("memory", Plasmoid.configuration.memoryPresentation))
+    readonly property var gpuParts: PanelPresentation.parts(PanelPresentation.presentation("gpu", Plasmoid.configuration.gpuPresentation))
+    readonly property var diskParts: PanelPresentation.parts(PanelPresentation.presentation("disk", Plasmoid.configuration.diskPresentation))
+    readonly property var networkParts: PanelPresentation.networkParts(PanelPresentation.presentation("network", Plasmoid.configuration.networkPresentation))
+
+    // Monochrome changes decoration only; values and N/A stay as text.
+    function moduleColor(id) {
+        return compact.monochrome ? Kirigami.Theme.textColor : Kirigami.Theme[compact.rootItem.modules.module(id).colorRole];
+    }
 
     // Column of a module in the configured order; hidden modules leave no gap.
     function moduleColumn(id) {
@@ -152,7 +167,7 @@ Item {
             Layout.column: compact.moduleColumn("cpu")
             toolTipTitle: toolTips.cpuTitle
             toolTipText: toolTips.cpuText
-            accentColor: Kirigami.Theme.positiveTextColor
+            accentColor: compact.moduleColor("cpu")
             tabIndex: 0
 
             Local.BarStat {
@@ -163,7 +178,12 @@ Item {
                 samples: rootItem.cpuUsageSamples
                 windowDuration: rootItem.historyWindowDuration
                 now: rootItem.historyNow
-                accentColor: Kirigami.Theme.positiveTextColor
+                accentColor: compact.moduleColor("cpu")
+                showLabel: Plasmoid.configuration.cpuShowLabel !== false
+                meterMode: compact.cpuParts.meter
+                showValue: compact.cpuParts.value
+                labelFontSize: compact.labelFontSize
+                valueFontSize: compact.valueFontSize
             }
         }
 
@@ -175,7 +195,7 @@ Item {
             Layout.column: compact.moduleColumn("memory")
             toolTipTitle: toolTips.memoryTitle
             toolTipText: toolTips.memoryText
-            accentColor: Kirigami.Theme.focusColor
+            accentColor: compact.moduleColor("memory")
             tabIndex: 1
 
             Local.BarStat {
@@ -186,7 +206,12 @@ Item {
                 samples: rootItem.memoryUsageSamples
                 windowDuration: rootItem.historyWindowDuration
                 now: rootItem.historyNow
-                accentColor: Kirigami.Theme.focusColor
+                accentColor: compact.moduleColor("memory")
+                showLabel: Plasmoid.configuration.memoryShowLabel !== false
+                meterMode: compact.memoryParts.meter
+                showValue: compact.memoryParts.value
+                labelFontSize: compact.labelFontSize
+                valueFontSize: compact.valueFontSize
             }
         }
 
@@ -196,7 +221,7 @@ Item {
             Layout.column: compact.moduleColumn("gpu")
             toolTipTitle: toolTips.gpuTitle
             toolTipText: toolTips.gpuText
-            accentColor: Kirigami.Theme.negativeTextColor
+            accentColor: compact.moduleColor("gpu")
             tabIndex: 2
 
             Local.BarStat {
@@ -210,7 +235,12 @@ Item {
                 samples: rootItem.gpuUsageSamples
                 windowDuration: rootItem.historyWindowDuration
                 now: rootItem.historyNow
-                accentColor: Kirigami.Theme.negativeTextColor
+                accentColor: compact.moduleColor("gpu")
+                showLabel: Plasmoid.configuration.gpuShowLabel !== false
+                meterMode: compact.gpuParts.meter
+                showValue: compact.gpuParts.value
+                labelFontSize: compact.labelFontSize
+                valueFontSize: compact.valueFontSize
             }
         }
 
@@ -220,7 +250,7 @@ Item {
             Layout.column: compact.moduleColumn("disk")
             toolTipTitle: toolTips.diskTitle
             toolTipText: toolTips.diskText
-            accentColor: Kirigami.Theme.neutralTextColor
+            accentColor: compact.moduleColor("disk")
             tabIndex: 4
 
             Local.BarStat {
@@ -231,8 +261,12 @@ Item {
                 samples: rootItem.diskUsageSamples
                 windowDuration: rootItem.historyWindowDuration
                 now: rootItem.historyNow
-                accentColor: Kirigami.Theme.neutralTextColor
-                previewMode: "bar"
+                accentColor: compact.moduleColor("disk")
+                showLabel: Plasmoid.configuration.diskShowLabel !== false
+                meterMode: compact.diskParts.meter
+                showValue: compact.diskParts.value
+                labelFontSize: compact.labelFontSize
+                valueFontSize: compact.valueFontSize
             }
         }
 
@@ -242,16 +276,17 @@ Item {
             Layout.column: compact.moduleColumn("network")
             toolTipTitle: toolTips.networkTitle
             toolTipText: toolTips.networkText
-            accentColor: Kirigami.Theme.visitedLinkColor
+            accentColor: compact.moduleColor("network")
             tabIndex: 3
 
             Controls.Label {
                 id: networkLabel
 
+                visible: Plasmoid.configuration.networkShowLabel !== false
                 text: i18nc("@label", "NET")
-                color: Kirigami.Theme.visitedLinkColor
+                color: compact.moduleColor("network")
                 elide: Text.ElideRight
-                font.pixelSize: (plasmoid.configuration.barLabelFontSize != 0) ? plasmoid.configuration.barLabelFontSize : Kirigami.Theme.smallFont.pixelSize
+                font.pixelSize: compact.labelFontSize > 0 ? compact.labelFontSize : Kirigami.Theme.smallFont.pixelSize
                 font.weight: Font.DemiBold
                 horizontalAlignment: Text.AlignRight
                 Layout.alignment: Qt.AlignVCenter
@@ -260,8 +295,37 @@ Item {
                 Layout.maximumWidth: Math.max(implicitWidth, Kirigami.Units.gridUnit * 1.25)
             }
 
+            // Upload above the baseline, download below, in the configured window.
+            Rectangle {
+                visible: compact.networkParts.graph
+                Layout.alignment: Qt.AlignVCenter
+                Layout.minimumWidth: Math.ceil(Kirigami.Units.gridUnit * 2.2)
+                Layout.preferredWidth: Math.ceil(Kirigami.Units.gridUnit * 2.2)
+                Layout.maximumWidth: Math.ceil(Kirigami.Units.gridUnit * 2.2)
+                // Same height rule as the BarStat meters beside it.
+                Layout.preferredHeight: Math.max(Kirigami.Units.gridUnit * 0.9, networkLabel.implicitHeight - Kirigami.Units.smallSpacing)
+                radius: 2
+                color: Qt.rgba(0, 0, 0, 0.86)
+                border.width: 1
+                border.color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.32)
+
+                Local.NetworkHistoryChart {
+                    anchors.fill: parent
+                    anchors.margins: 2
+                    showScale: false
+                    uploadSamples: compact.rootItem.networkUploadSamples
+                    downloadSamples: compact.rootItem.networkDownloadSamples
+                    windowDuration: compact.rootItem.historyWindowDuration
+                    now: compact.rootItem.historyNow
+                    uploadColor: compact.monochrome ? Kirigami.Theme.textColor : Kirigami.Theme.negativeTextColor
+                    downloadColor: compact.monochrome ? Kirigami.Theme.textColor : Kirigami.Theme.focusColor
+                }
+            }
+
             ColumnLayout {
                 id: networkRates
+
+                visible: compact.networkParts.numbers
 
                 readonly property real rateFontSize: Math.max(7, Kirigami.Theme.smallFont.pixelSize - 2)
                 readonly property real arrowWidth: Math.ceil(networkArrowMetrics.width)
@@ -311,7 +375,7 @@ Item {
 
                     Controls.Label {
                         text: i18nc("@label upload", "↑")
-                        color: Kirigami.Theme.visitedLinkColor
+                        color: compact.moduleColor("network")
                         font.pixelSize: networkRates.rateFontSize
                         font.weight: Font.DemiBold
                         horizontalAlignment: Text.AlignRight
@@ -359,7 +423,7 @@ Item {
 
                     Controls.Label {
                         text: i18nc("@label download", "↓")
-                        color: Kirigami.Theme.visitedLinkColor
+                        color: compact.moduleColor("network")
                         font.pixelSize: networkRates.rateFontSize
                         font.weight: Font.DemiBold
                         horizontalAlignment: Text.AlignRight

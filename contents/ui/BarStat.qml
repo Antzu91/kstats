@@ -5,6 +5,10 @@ import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 import "." as Local
 
+// One percentage module in the panel: an optional label, an optional meter
+// (sparkline or bar) and an optional value. Widths depend only on the parts
+// shown and a sample value, never on the current reading, so the panel does
+// not shift when a reading changes or becomes unavailable.
 RowLayout {
     id: stat
 
@@ -16,17 +20,25 @@ RowLayout {
     property real windowDuration: 60000
     property real now: 0
     property color accentColor: Kirigami.Theme.highlightColor
-    property bool showMeter: true
     property bool dataAvailable: true
+    property bool showLabel: true
+    property bool showValue: true
+    // "sparkline", "bar" or "none".
+    property string meterMode: "sparkline"
+    // 0 keeps the theme's small font.
+    property int labelFontSize: 0
+    property int valueFontSize: 0
 
-    property string previewMode: "sparkline"
-    // Round each slot so nested layouts keep the same gap between modules.
-    readonly property real labelWidth: Math.ceil(Math.max(labelText.implicitWidth, stat.label.length <= 1 ? Kirigami.Units.gridUnit * 0.7 : Kirigami.Units.gridUnit * 1.25))
-    readonly property real valueWidth: Math.ceil(showMeter ? valueMetrics.width + 1 : Kirigami.Units.gridUnit * 3)
-    readonly property real previewWidth: showMeter
-        ? Math.ceil(previewMode === "bar" ? Kirigami.Units.gridUnit * 0.85 : Kirigami.Units.gridUnit * 2.2)
+    readonly property bool showMeter: meterMode === "sparkline" || meterMode === "bar"
+    readonly property real labelWidth: showLabel
+        ? Math.ceil(Math.max(labelText.implicitWidth, stat.label.length <= 1 ? Kirigami.Units.gridUnit * 0.7 : Kirigami.Units.gridUnit * 1.25))
         : 0
-    readonly property real fixedWidth: labelWidth + valueWidth + (showMeter ? previewWidth + spacing * 2 : spacing)
+    readonly property real valueWidth: showValue ? Math.ceil(valueMetrics.width + 1) : 0
+    readonly property real meterWidth: showMeter
+        ? Math.ceil(meterMode === "bar" ? Kirigami.Units.gridUnit * 0.85 : Kirigami.Units.gridUnit * 2.2)
+        : 0
+    readonly property int partCount: (showLabel ? 1 : 0) + (showMeter ? 1 : 0) + (showValue ? 1 : 0)
+    readonly property real fixedWidth: labelWidth + meterWidth + valueWidth + spacing * Math.max(0, partCount - 1)
 
     spacing: Math.max(1, Kirigami.Units.smallSpacing / 4)
     Layout.alignment: Qt.AlignVCenter
@@ -39,16 +51,17 @@ RowLayout {
         id: valueMetrics
 
         font: valueText.font
-        text: stat.showMeter ? stat.valueWidthSample : stat.value
+        text: stat.valueWidthSample
     }
 
     Controls.Label {
         id: labelText
 
+        visible: stat.showLabel
         text: stat.label
         color: stat.accentColor
         elide: Text.ElideRight
-        font.pixelSize: (plasmoid.configuration.barLabelFontSize != 0) ? plasmoid.configuration.barLabelFontSize : Kirigami.Theme.smallFont.pixelSize
+        font.pixelSize: stat.labelFontSize > 0 ? stat.labelFontSize : Kirigami.Theme.smallFont.pixelSize
         font.weight: Font.DemiBold
         horizontalAlignment: Text.AlignRight
         Layout.minimumWidth: stat.labelWidth
@@ -58,11 +71,13 @@ RowLayout {
 
     Rectangle {
         visible: stat.showMeter
-        opacity: stat.dataAvailable ? 1 : 0
+        // With the value shown, its N/A explains a missing reading; a meter
+        // alone keeps its frame and says N/A itself.
+        opacity: stat.dataAvailable || !stat.showValue ? 1 : 0
         clip: true
-        Layout.minimumWidth: stat.previewWidth
-        Layout.preferredWidth: stat.previewWidth
-        Layout.maximumWidth: stat.previewWidth
+        Layout.minimumWidth: stat.meterWidth
+        Layout.preferredWidth: stat.meterWidth
+        Layout.maximumWidth: stat.meterWidth
         Layout.preferredHeight: Math.max(Kirigami.Units.gridUnit * 0.9, stat.height - Kirigami.Units.smallSpacing)
         radius: 2
         color: Qt.rgba(0, 0, 0, 0.86)
@@ -70,7 +85,7 @@ RowLayout {
         border.color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.32)
 
         Rectangle {
-            visible: stat.previewMode === "sparkline"
+            visible: stat.dataAvailable && stat.meterMode === "sparkline"
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: parent.bottom
@@ -79,7 +94,7 @@ RowLayout {
         }
 
         Rectangle {
-            visible: stat.previewMode === "bar"
+            visible: stat.dataAvailable && stat.meterMode === "bar"
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: parent.bottom
@@ -92,7 +107,7 @@ RowLayout {
 
         Loader {
             id: sparklineLoader
-            active: stat.showMeter && stat.dataAvailable && stat.previewMode === "sparkline"
+            active: stat.dataAvailable && stat.meterMode === "sparkline"
             anchors.fill: parent
             anchors.margins: 2
             sourceComponent: Component {
@@ -105,15 +120,25 @@ RowLayout {
                 }
             }
         }
+
+        Controls.Label {
+            objectName: "meterUnavailable"
+            anchors.centerIn: parent
+            visible: !stat.dataAvailable && !stat.showValue
+            text: i18nc("@info:status", "N/A")
+            color: Kirigami.Theme.textColor
+            font.pixelSize: Math.max(7, Kirigami.Theme.smallFont.pixelSize - 2)
+        }
     }
 
     Controls.Label {
         id: valueText
 
+        visible: stat.showValue
         text: stat.value
         color: Kirigami.Theme.textColor
         elide: Text.ElideRight
-        font.pixelSize: (plasmoid.configuration.barValueFontSize != 0) ? plasmoid.configuration.barValueFontSize : Kirigami.Theme.smallFont.pixelSize
+        font.pixelSize: stat.valueFontSize > 0 ? stat.valueFontSize : Kirigami.Theme.smallFont.pixelSize
         font.features: { "tnum": 1 }
         horizontalAlignment: Text.AlignRight
         Layout.minimumWidth: stat.valueWidth

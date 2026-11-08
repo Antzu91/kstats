@@ -7,6 +7,7 @@ import org.kde.kirigami as Kirigami
 import "CpuSensorChoice.js" as CpuSensorChoice
 import "DiskSource.js" as DiskSource
 import "ModuleCatalog.js" as ModuleCatalog
+import "PanelPresentation.js" as PanelPresentation
 import "NetworkSource.js" as NetworkSource
 import "." as Local
 
@@ -17,17 +18,28 @@ KCM.SimpleKCM {
     property int cfg_historyWindowMinutesDefault
     property alias cfg_updateRateLimit: updateRateLimit.value
     property alias cfg_compactBarLength: compactBarLength.value
-    property alias cfg_showCpu: showCpu.checked
-    property alias cfg_showMemory: showMemory.checked
-    property alias cfg_showGpu: showGpu.checked
+    property bool cfg_showCpu: true
+    property bool cfg_showMemory: true
+    property bool cfg_showGpu: true
     property string cfg_gpuDeviceId: "gpu0"
     property string cfg_networkSource: "all"
     property string cfg_diskSource: "all"
     property string cfg_moduleOrder: ModuleCatalog.defaultOrder
+    property bool cfg_monochrome: false
+    property string cfg_cpuPresentation: "numberGraph"
+    property bool cfg_cpuShowLabel: true
+    property string cfg_memoryPresentation: "numberGraph"
+    property bool cfg_memoryShowLabel: true
+    property string cfg_gpuPresentation: "numberGraph"
+    property bool cfg_gpuShowLabel: true
+    property string cfg_diskPresentation: "bar"
+    property bool cfg_diskShowLabel: true
+    property string cfg_networkPresentation: "numbers"
+    property bool cfg_networkShowLabel: true
     property string cfg_cpuTemperatureSensor: "auto"
     property string cfg_cpuFanSensor: "auto"
-    property alias cfg_showDisk: showDisk.checked
-    property alias cfg_showNetwork: showNetwork.checked
+    property bool cfg_showDisk: true
+    property bool cfg_showNetwork: true
     property alias cfg_publicIpLookup: publicIpLookup.checked
     property alias cfg_cpuSensorId: cpuSensorId.text
     property alias cfg_memorySensorId: memorySensorId.text
@@ -48,6 +60,17 @@ KCM.SimpleKCM {
     property string cfg_networkSourceDefault
     property string cfg_diskSourceDefault
     property string cfg_moduleOrderDefault
+    property bool cfg_monochromeDefault
+    property string cfg_cpuPresentationDefault
+    property bool cfg_cpuShowLabelDefault
+    property string cfg_memoryPresentationDefault
+    property bool cfg_memoryShowLabelDefault
+    property string cfg_gpuPresentationDefault
+    property bool cfg_gpuShowLabelDefault
+    property string cfg_diskPresentationDefault
+    property bool cfg_diskShowLabelDefault
+    property string cfg_networkPresentationDefault
+    property bool cfg_networkShowLabelDefault
     property string cfg_cpuTemperatureSensorDefault
     property string cfg_cpuFanSensorDefault
     property bool cfg_showDiskDefault
@@ -64,6 +87,72 @@ KCM.SimpleKCM {
     property Local.GpuDiscovery gpuDiscovery: Local.GpuDiscovery {}
     property Local.ModuleCatalog moduleCatalog: Local.ModuleCatalog {}
     readonly property var moduleOrderList: ModuleCatalog.normalizeOrder(root.cfg_moduleOrder)
+
+    function presentationLabel(mode) {
+        switch (mode) {
+        case "number":
+            return i18nc("@item:inlistbox panel presentation", "Number");
+        case "numbers":
+            return i18nc("@item:inlistbox panel presentation", "Numbers");
+        case "graph":
+            return i18nc("@item:inlistbox panel presentation", "Graph");
+        case "numberGraph":
+            return i18nc("@item:inlistbox panel presentation", "Number and graph");
+        case "numbersGraph":
+            return i18nc("@item:inlistbox panel presentation", "Numbers and graph");
+        default:
+            return i18nc("@item:inlistbox panel presentation", "Bar");
+        }
+    }
+
+    // Shows a module, picks how the panel draws it, and toggles its label.
+    // Bindings are restored after each edit so presets can update them.
+    component ModuleRow: RowLayout {
+        id: moduleRow
+
+        required property string moduleId
+        property bool shown: true
+        property string presentation: ""
+        property bool labelShown: true
+        readonly property var modes: PanelPresentation.modesFor(moduleId)
+        readonly property string moduleName: root.moduleCatalog.module(moduleId).name
+
+        signal shownEdited(bool value)
+        signal presentationEdited(string value)
+        signal labelEdited(bool value)
+
+        spacing: Kirigami.Units.smallSpacing
+
+        Controls.CheckBox {
+            text: i18nc("@option:check", "Show in bar")
+            checked: moduleRow.shown
+            onToggled: {
+                moduleRow.shownEdited(checked);
+                checked = Qt.binding(() => moduleRow.shown);
+            }
+        }
+
+        Controls.ComboBox {
+            enabled: moduleRow.shown
+            model: moduleRow.modes.map(mode => root.presentationLabel(mode))
+            currentIndex: moduleRow.modes.indexOf(PanelPresentation.presentation(moduleRow.moduleId, moduleRow.presentation))
+            onActivated: index => {
+                moduleRow.presentationEdited(moduleRow.modes[index]);
+                currentIndex = Qt.binding(() => moduleRow.modes.indexOf(PanelPresentation.presentation(moduleRow.moduleId, moduleRow.presentation)));
+            }
+            Accessible.name: i18nc("@label accessible name", "%1 panel display", moduleRow.moduleName)
+        }
+
+        Controls.CheckBox {
+            enabled: moduleRow.shown
+            text: i18nc("@option:check show the module's name in the panel", "Label")
+            checked: moduleRow.labelShown
+            onToggled: {
+                moduleRow.labelEdited(checked);
+                checked = Qt.binding(() => moduleRow.labelShown);
+            }
+        }
+    }
 
     function moveModule(id, delta) {
         root.cfg_moduleOrder = ModuleCatalog.move(root.cfg_moduleOrder, id, delta);
@@ -243,10 +332,15 @@ KCM.SimpleKCM {
             Layout.fillWidth: true
         }
 
-        Controls.CheckBox {
-            id: showCpu
+        ModuleRow {
             Kirigami.FormData.label: i18nc("@label", "CPU:")
-            text: i18nc("@option:check", "Show in bar")
+            moduleId: "cpu"
+            shown: root.cfg_showCpu
+            presentation: root.cfg_cpuPresentation
+            labelShown: root.cfg_cpuShowLabel
+            onShownEdited: value => root.cfg_showCpu = value
+            onPresentationEdited: value => root.cfg_cpuPresentation = value
+            onLabelEdited: value => root.cfg_cpuShowLabel = value
         }
 
         // Choosing a sensor opens the picker; cancelling it keeps the old choice.
@@ -278,23 +372,33 @@ KCM.SimpleKCM {
             }
         }
 
-        Controls.CheckBox {
-            id: showMemory
+        ModuleRow {
             Kirigami.FormData.label: i18nc("@label", "Memory:")
-            text: i18nc("@option:check", "Show in bar")
+            moduleId: "memory"
+            shown: root.cfg_showMemory
+            presentation: root.cfg_memoryPresentation
+            labelShown: root.cfg_memoryShowLabel
+            onShownEdited: value => root.cfg_showMemory = value
+            onPresentationEdited: value => root.cfg_memoryPresentation = value
+            onLabelEdited: value => root.cfg_memoryShowLabel = value
         }
 
-        Controls.CheckBox {
-            id: showGpu
+        ModuleRow {
             Kirigami.FormData.label: i18nc("@label", "GPU:")
-            text: i18nc("@option:check", "Show in bar")
+            moduleId: "gpu"
+            shown: root.cfg_showGpu
+            presentation: root.cfg_gpuPresentation
+            labelShown: root.cfg_gpuShowLabel
+            onShownEdited: value => root.cfg_showGpu = value
+            onPresentationEdited: value => root.cfg_gpuPresentation = value
+            onLabelEdited: value => root.cfg_gpuShowLabel = value
         }
 
         Controls.ComboBox {
             Kirigami.FormData.label: i18nc("@label", "Panel GPU:")
             Layout.fillWidth: true
             Layout.minimumWidth: Kirigami.Units.gridUnit * 12
-            enabled: showGpu.checked
+            enabled: root.cfg_showGpu
             Controls.ToolTip.visible: hovered
             Controls.ToolTip.text: currentText
             model: root.gpuChoices
@@ -306,10 +410,15 @@ KCM.SimpleKCM {
             onActivated: root.cfg_gpuDeviceId = currentValue
         }
 
-        Controls.CheckBox {
-            id: showDisk
+        ModuleRow {
             Kirigami.FormData.label: i18nc("@label", "Disk:")
-            text: i18nc("@option:check", "Show in bar")
+            moduleId: "disk"
+            shown: root.cfg_showDisk
+            presentation: root.cfg_diskPresentation
+            labelShown: root.cfg_diskShowLabel
+            onShownEdited: value => root.cfg_showDisk = value
+            onPresentationEdited: value => root.cfg_diskPresentation = value
+            onLabelEdited: value => root.cfg_diskShowLabel = value
         }
 
         Controls.ComboBox {
@@ -327,10 +436,15 @@ KCM.SimpleKCM {
             Controls.ToolTip.text: i18nc("@info:tooltip", "Usage, read and write rates in the panel, popup and history all follow this source.")
         }
 
-        Controls.CheckBox {
-            id: showNetwork
+        ModuleRow {
             Kirigami.FormData.label: i18nc("@label", "Network:")
-            text: i18nc("@option:check", "Show in bar")
+            moduleId: "network"
+            shown: root.cfg_showNetwork
+            presentation: root.cfg_networkPresentation
+            labelShown: root.cfg_networkShowLabel
+            onShownEdited: value => root.cfg_showNetwork = value
+            onPresentationEdited: value => root.cfg_networkPresentation = value
+            onLabelEdited: value => root.cfg_networkShowLabel = value
         }
 
         Controls.ComboBox {
@@ -380,6 +494,18 @@ KCM.SimpleKCM {
             font: Kirigami.Theme.smallFont
             color: Kirigami.Theme.disabledTextColor
             text: i18nc("@info", "Sends a request to api64.ipify.org, which sees your public IP address. Only when the Network page opens or you press Refresh; never in the background.")
+        }
+
+        Controls.CheckBox {
+            Kirigami.FormData.label: i18nc("@label", "Colors:")
+            text: i18nc("@option:check", "Monochrome panel")
+            checked: root.cfg_monochrome
+            onToggled: {
+                root.cfg_monochrome = checked;
+                checked = Qt.binding(() => root.cfg_monochrome);
+            }
+            Controls.ToolTip.visible: hovered
+            Controls.ToolTip.text: i18nc("@info:tooltip", "Draw labels, graphs and bars in the text color. Readings and N/A stay as text.")
         }
 
         Kirigami.Separator {
