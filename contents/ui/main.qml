@@ -28,6 +28,7 @@ PlasmoidItem {
     property alias networkDownloadMonitor: networkDownload
     readonly property var networkUploadSensor: networkUpload.sensor
     property alias networkUploadMonitor: networkUpload
+    property alias networkModel: networkScope
     readonly property var gpuDevices: gpuDiscovery.devices
     readonly property string gpuDeviceId: root.configString(Plasmoid.configuration.gpuDeviceId)
     readonly property var selectedGpu: gpuDevices.find(function(device) {
@@ -278,12 +279,25 @@ PlasmoidItem {
         updateRateLimit: root.sensorUpdateRate
     }
 
+    // One scope for the panel, popup, tooltip and history. Changing it changes
+    // the sensor IDs, so history starts a new series instead of joining lines.
+    Local.NetworkModel {
+        id: networkScope
+        source: root.configString(Plasmoid.configuration.networkSource)
+        customDownloadSensorId: root.configString(Plasmoid.configuration.networkDownloadSensorId)
+        customUploadSensorId: root.configString(Plasmoid.configuration.networkUploadSensorId)
+        active: Plasmoid.configuration.showNetwork || root.networkDetailsVisible
+        detailsDemand: root.networkDetailsVisible
+    }
+
     Local.SensorMonitor {
         id: networkDownload
         metricId: "networkDownload"
         valueMode: "bytesPerSecond"
         active: Plasmoid.configuration.showNetwork || root.networkDetailsVisible
-        sensorId: root.configString(Plasmoid.configuration.networkDownloadSensorId)
+        sensorId: networkScope.downloadSensorId
+        // An unresolved automatic route is missing data; a cleared custom ID is "Off".
+        emptyIsUnavailable: networkScope.mode !== "custom"
         updateRateLimit: root.sensorUpdateRate
     }
 
@@ -292,7 +306,8 @@ PlasmoidItem {
         metricId: "networkUpload"
         valueMode: "bytesPerSecond"
         active: Plasmoid.configuration.showNetwork || root.networkDetailsVisible
-        sensorId: root.configString(Plasmoid.configuration.networkUploadSensorId)
+        sensorId: networkScope.uploadSensorId
+        emptyIsUnavailable: networkScope.mode !== "custom"
         updateRateLimit: root.sensorUpdateRate
     }
 

@@ -53,6 +53,10 @@
         <entry name="diskWriteSensorId" type="String">
             <default>disk/all/write</default>
         </entry>
+        <!-- all, auto, interface:NAME or custom; custom uses the two sensor IDs below. -->
+        <entry name="networkSource" type="String">
+            <default>all</default>
+        </entry>
         <entry name="networkDownloadSensorId" type="String">
             <default>network/all/download</default>
         </entry>

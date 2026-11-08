@@ -70,6 +70,9 @@ TestCase {
             property QtObject diskWriteMonitor: fakeMonitor.createObject(fakeRoot, { sensorId: "", status: "disabled", text: "Off" })
             property QtObject networkDownloadMonitor: fakeMonitor.createObject(fakeRoot)
             property QtObject networkUploadMonitor: fakeMonitor.createObject(fakeRoot)
+            property QtObject networkModel: QtObject {
+                property string scopeText: "All interfaces"
+            }
             property QtObject cpuDetailHistory: QtObject {
                 property var userPercent: null
                 property var systemPercent: null
@@ -106,7 +109,7 @@ TestCase {
         compare(f.tips.gpuTitle, "GPU");
         compare(f.tips.gpuText, "Usage: N/A");
         compare(f.tips.diskText, "Used: N/A");
-        compare(f.tips.networkText, "Download: N/A\nUpload: N/A");
+        compare(f.tips.networkText, "All interfaces\nDownload: N/A\nUpload: N/A");
         wait(50);
         compare(f.tips.memoryText, "Used: N/A");
     }
@@ -145,6 +148,14 @@ TestCase {
             temperature: fakeMonitor.createObject(f, { sensorId: "", status: "disabled", text: "N/A" })
         };
         compare(f.tips.gpuText, "Usage: 31%\nMemory: 17%");
+    }
+
+    function test_networkNamesItsScope() {
+        var f = make();
+        f.networkModel.scopeText = "Automatic: Ethernet (eno1)";
+        f.networkDownloadMonitor.text = "1.2 MiB/s";
+        f.networkUploadMonitor.text = "40 KiB/s";
+        compare(f.tips.networkText, "Automatic: Ethernet (eno1)\nDownload: 1.2 MiB/s\nUpload: 40 KiB/s");
     }
 
     function test_diskActivityAppearsWhenConfigured() {

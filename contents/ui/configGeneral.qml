@@ -4,6 +4,7 @@ import QtQuick.Layouts
 
 import org.kde.kcmutils as KCM
 import org.kde.kirigami as Kirigami
+import "NetworkSource.js" as NetworkSource
 import "." as Local
 
 KCM.SimpleKCM {
@@ -17,6 +18,7 @@ KCM.SimpleKCM {
     property alias cfg_showMemory: showMemory.checked
     property alias cfg_showGpu: showGpu.checked
     property string cfg_gpuDeviceId: "gpu0"
+    property string cfg_networkSource: "all"
     property alias cfg_showDisk: showDisk.checked
     property alias cfg_showNetwork: showNetwork.checked
     property alias cfg_cpuSensorId: cpuSensorId.text
@@ -35,6 +37,7 @@ KCM.SimpleKCM {
     property bool cfg_showMemoryDefault
     property bool cfg_showGpuDefault
     property string cfg_gpuDeviceIdDefault
+    property string cfg_networkSourceDefault
     property bool cfg_showDiskDefault
     property bool cfg_showNetworkDefault
     property string cfg_cpuSensorIdDefault
@@ -46,6 +49,40 @@ KCM.SimpleKCM {
     property string cfg_networkUploadSensorIdDefault
 
     property Local.GpuDiscovery gpuDiscovery: Local.GpuDiscovery {}
+    property Local.NetworkInterfaces networkInterfaces: Local.NetworkInterfaces {}
+    property Local.NetworkLabels networkLabels: Local.NetworkLabels {}
+
+    // Legacy custom sensor IDs resolve to the Custom source, as in the widget.
+    readonly property string effectiveNetworkSource: NetworkSource.effectiveSource(root.cfg_networkSource,
+        networkDownloadSensorId.text, networkUploadSensorId.text)
+    readonly property var networkChoices: {
+        var keys = ["all", "auto"].concat(networkInterfaces.interfaces.map(function(name) {
+            return NetworkSource.interfaceSource(name);
+        }));
+        // Keep a configured interface selectable even while it is absent.
+        if (keys.indexOf(root.effectiveNetworkSource) < 0 && root.effectiveNetworkSource !== "custom") {
+            keys.push(root.effectiveNetworkSource);
+        }
+        keys.push("custom");
+        return keys.map(function(key) {
+            var name = root.networkLabels.sourceLabel(key);
+            if (NetworkSource.mode(key) === "interface"
+                    && root.networkInterfaces.interfaces.indexOf(NetworkSource.interfaceFromSource(key)) < 0) {
+                name = i18nc("@item:inlistbox unavailable network interface", "%1 (unavailable)", name);
+            }
+            return { key: key, name: name };
+        });
+    }
+
+    function selectNetworkSource(key) {
+        root.cfg_networkSource = key;
+        if (key !== "custom") {
+            // Friendly sources own their sensors; clear legacy IDs so they cannot
+            // turn the choice back into Custom on the next load.
+            networkDownloadSensorId.text = NetworkSource.defaultDownloadSensorId;
+            networkUploadSensorId.text = NetworkSource.defaultUploadSensorId;
+        }
+    }
 
     readonly property var gpuChoices: {
         var choices = gpuDiscovery.devices.map(function(device) {
@@ -158,6 +195,40 @@ KCM.SimpleKCM {
             text: i18nc("@option:check", "Show in bar")
         }
 
+        Controls.ComboBox {
+            id: networkSource
+            Kirigami.FormData.label: i18nc("@label", "Network source:")
+            Layout.fillWidth: true
+            Layout.minimumWidth: Kirigami.Units.gridUnit * 12
+            model: root.networkChoices
+            textRole: "name"
+            valueRole: "key"
+            currentIndex: root.networkChoices.findIndex(function(choice) {
+                return choice.key === root.effectiveNetworkSource;
+            })
+            onActivated: root.selectNetworkSource(currentValue)
+        }
+
+        Controls.Label {
+            Layout.fillWidth: true
+            Layout.maximumWidth: Kirigami.Units.gridUnit * 22
+            wrapMode: Text.Wrap
+            font: Kirigami.Theme.smallFont
+            color: Kirigami.Theme.disabledTextColor
+            text: {
+                switch (NetworkSource.mode(root.effectiveNetworkSource)) {
+                case "auto":
+                    return i18nc("@info", "Follows the interface used by the default route. Shows N/A when no route is available.");
+                case "interface":
+                    return i18nc("@info", "Always measures this interface, even while it is disconnected.");
+                case "custom":
+                    return i18nc("@info", "Uses the network sensor IDs below.");
+                default:
+                    return i18nc("@info", "Combined traffic of every interface. Virtual and VPN interfaces can count the same traffic more than once.");
+                }
+            }
+        }
+
         Kirigami.Separator {
             Kirigami.FormData.isSection: true
             Kirigami.FormData.label: i18nc("@title:group", "Font sizes")
@@ -238,12 +309,14 @@ KCM.SimpleKCM {
 
         Controls.TextField {
             id: networkDownloadSensorId
+            enabled: NetworkSource.mode(root.effectiveNetworkSource) === "custom"
             Kirigami.FormData.label: i18nc("@label", "Network down:")
             placeholderText: root.cfg_networkDownloadSensorIdDefault
         }
 
         Controls.TextField {
             id: networkUploadSensorId
+            enabled: NetworkSource.mode(root.effectiveNetworkSource) === "custom"
             Kirigami.FormData.label: i18nc("@label", "Network up:")
             placeholderText: root.cfg_networkUploadSensorIdDefault
         }

@@ -55,6 +55,7 @@ TestCase {
             property alias diskWriteMonitor: diskWrite
             property alias networkDownloadMonitor: networkDownload
             property alias networkUploadMonitor: networkUpload
+            property alias networkModel: networkScope
             property alias cpuDetailHistory: cpuDetails
             property alias cpuCountSensor: cpuCount
             property alias cpuCoreCountSensor: cpuCoreCount
@@ -85,8 +86,15 @@ TestCase {
             Local.SensorMonitor { id: diskUsage; metricId: "disk"; valueMode: "percent"; sensorId: "disk/all/usedPercent" }
             Local.SensorMonitor { id: diskRead; metricId: "diskRead"; valueMode: "bytesPerSecond"; sensorId: "disk/all/read" }
             Local.SensorMonitor { id: diskWrite; metricId: "diskWrite"; valueMode: "bytesPerSecond"; sensorId: "disk/all/write" }
-            Local.SensorMonitor { id: networkDownload; metricId: "networkDownload"; valueMode: "bytesPerSecond"; sensorId: "network/all/download" }
-            Local.SensorMonitor { id: networkUpload; metricId: "networkUpload"; valueMode: "bytesPerSecond"; sensorId: "network/all/upload" }
+            // Automatic needs a route lookup; CI may lack routes or the ip command.
+            Local.NetworkModel {
+                id: networkScope
+                source: "auto"
+                active: true
+                detailsDemand: fakeRoot.networkDetailsVisible
+            }
+            Local.SensorMonitor { id: networkDownload; metricId: "networkDownload"; valueMode: "bytesPerSecond"; sensorId: networkScope.downloadSensorId; emptyIsUnavailable: true }
+            Local.SensorMonitor { id: networkUpload; metricId: "networkUpload"; valueMode: "bytesPerSecond"; sensorId: networkScope.uploadSensorId; emptyIsUnavailable: true }
             Sensors.Sensor { id: cpuCount; sensorId: "cpu/all/cpuCount" }
             Sensors.Sensor { id: cpuCoreCount; sensorId: "cpu/all/coreCount" }
             Local.CpuHistory {

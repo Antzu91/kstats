@@ -3,217 +3,138 @@ import QtQuick.Controls as Controls
 import QtQuick.Layouts
 
 import org.kde.kirigami as Kirigami
+import org.kde.ksysguard.sensors as Sensors
+import "NetworkSource.js" as NetworkSource
 import "." as Local
 
 Item {
     id: page
 
     required property var rootItem
+    // Rates, history and scope come from the shared model the panel also uses.
+    readonly property var scope: rootItem.networkModel
     readonly property bool active: rootItem.networkDetailsVisible
-    property int generation: 0
-    property bool inFlight: false
-    property string interfaceName: ""
-    property string localIp: i18nc("@info:status", "N/A")
+    readonly property string detailsInterface: scope.detailsInterface
+    readonly property bool detailsAvailable: NetworkSource.validInterfaceName(detailsInterface)
+    // Replace in fixtures to hold, reorder or fail detail lookups.
+    property Component commandComponent: Component { Local.RunCommand {} }
+    property int detailsGeneration: 0
+    property bool detailsInFlight: false
+    property string localIp: ""
+    property string physicalAddress: ""
     property string publicIp: i18nc("@info:status", "N/A")
-    property string networkName: i18nc("@info:status", "N/A")
-    property string physicalAddress: i18nc("@info:status", "N/A")
-    property var downloadRate: null
-    property var uploadRate: null
-    property real lastRxBytes: -1
-    property real lastTxBytes: -1
-    property real lastSampleTime: 0
-    property int chartTick: 0
-    property int detailsTick: 0
+    readonly property string networkName: {
+        if (networkNameSensor.status === Sensors.Sensor.Ready && typeof networkNameSensor.value === "string"
+                && networkNameSensor.value.trim().length > 0) {
+            return networkNameSensor.value.trim();
+        }
+        switch (NetworkSource.interfaceKind(detailsInterface)) {
+        case "wifi":
+            return i18nc("@label", "Wi-Fi");
+        case "ethernet":
+            return i18nc("@label", "Wired");
+        case "vpn":
+            return i18nc("@label", "VPN");
+        default:
+            return i18nc("@info:status", "N/A");
+        }
+    }
 
     clip: true
     Layout.fillWidth: true
     Layout.fillHeight: true
 
-    function formatRate(bytesPerSecond) {
-        if (bytesPerSecond === null || !isFinite(Number(bytesPerSecond))) {
-            return i18nc("@info:status", "N/A");
-        }
-        var value = Math.max(0, Number(bytesPerSecond));
-        if (value >= 1048576) {
-            return i18nc("@label network megabytes per second", "%1 MB/s", (value / 1048576).toFixed(value >= 10485760 ? 1 : 2));
-        }
-        if (value >= 1024) {
-            return i18nc("@label network kilobytes per second", "%1 KB/s", (value / 1024).toFixed(value >= 10240 ? 0 : 1));
-        }
-        return i18nc("@label network bytes per second", "%1 B/s", Math.round(value));
+    function orMissing(value) {
+        return value.length > 0 ? value : i18nc("@info:status", "N/A");
     }
 
-    function niceInterfaceName(name) {
-        if (name.length === 0) {
-            return i18nc("@info:status", "N/A");
+    function parseAddress(output) {
+        var ipv4 = String(output || "").match(/\binet\s+([0-9.]+)/);
+        if (ipv4) {
+            return ipv4[1];
         }
-        if (name.indexOf("wl") === 0) {
-            return i18nc("@label wifi interface", "Wi-Fi (%1)", name);
-        }
-        if (name.indexOf("en") === 0 || name.indexOf("eth") === 0) {
-            return i18nc("@label wired interface", "Ethernet (%1)", name);
-        }
-        return name;
+        var ipv6 = String(output || "").match(/\binet6\s+([0-9a-fA-F:]+)/);
+        return ipv6 ? ipv6[1] : "";
     }
 
-    function isIgnoredInterface(name) {
-        return name === "lo"
-            || name.indexOf("docker") === 0
-            || name.indexOf("br-") === 0
-            || name.indexOf("veth") === 0
-            || name.indexOf("tun") === 0;
+    // Interface changes clear old addresses so they cannot describe the new scope.
+    function resetDetails() {
+        detailsGeneration++;
+        localIp = "";
+        physicalAddress = "";
     }
 
-    function refreshRoute() {
-        routeCommand.exec("ip route get 1.1.1.1", function(result) {
-            if (result.exitCode !== 0) {
-                return;
-            }
-
-            var devMatch = result.stdout.match(/\bdev\s+(\S+)/);
-            var srcMatch = result.stdout.match(/\bsrc\s+(\S+)/);
-
-            if (devMatch) {
-                page.interfaceName = devMatch[1];
-                page.refreshInterfaceDetails();
-            }
-            if (srcMatch) {
-                page.localIp = srcMatch[1];
-            }
-        });
+    function acceptDetails(generation) {
+        if (generation === detailsGeneration && active) {
+            return true;
+        }
+        detailsInFlight = false;
+        if (active) {
+            Qt.callLater(page.refreshDetails);
+        }
+        return false;
     }
 
-    function refreshInterfaceDetails() {
-        if (page.interfaceName.length === 0) {
+    function refreshDetails() {
+        // Read the model directly: derived bindings on this page may not have
+        // updated yet when a change handler calls in.
+        var name = scope.detailsInterface;
+        if (!active || detailsInFlight || !NetworkSource.validInterfaceName(name)
+                || !addressCommand.provider || !macCommand.provider) {
             return;
         }
-
-        macCommand.exec("cat /sys/class/net/" + page.interfaceName + "/address", function(result) {
-            if (result.exitCode === 0 && result.stdout.trim().length > 0) {
-                page.physicalAddress = result.stdout.trim();
+        detailsInFlight = true;
+        var generation = detailsGeneration;
+        addressCommand.provider.exec("ip -o addr show dev " + name + " scope global", function(addressResult) {
+            if (!page.acceptDetails(generation)) {
+                return;
             }
-        });
-
-        addrCommand.exec("ip -o -4 addr show dev " + page.interfaceName, function(result) {
-            if (result.exitCode === 0) {
-                var match = result.stdout.match(/\binet\s+([0-9.]+)/);
-                if (match) {
-                    page.localIp = match[1];
+            page.localIp = addressResult.exitCode === 0 ? page.parseAddress(addressResult.stdout) : "";
+            macCommand.provider.exec("cat /sys/class/net/" + name + "/address", function(macResult) {
+                if (!page.acceptDetails(generation)) {
+                    return;
                 }
-            }
-        });
-
-        wifiCommand.exec("iwgetid " + page.interfaceName + " -r", function(result) {
-            var name = result.exitCode === 0 ? result.stdout.trim() : "";
-            if (name.length > 0) {
-                page.networkName = name;
-            } else if (page.interfaceName.indexOf("wl") === 0) {
-                page.networkName = i18nc("@label", "Wi-Fi");
-            } else if (page.interfaceName.length > 0) {
-                page.networkName = i18nc("@label", "Wired");
-            }
+                page.detailsInFlight = false;
+                page.physicalAddress = macResult.exitCode === 0 ? macResult.stdout.trim() : "";
+            });
         });
     }
 
-    function clearRates() {
-        downloadRate = null;
-        uploadRate = null;
-        lastRxBytes = -1;
-        lastTxBytes = -1;
-        lastSampleTime = 0;
+    onDetailsInterfaceChanged: {
+        resetDetails();
+        Qt.callLater(page.refreshDetails);
+    }
+    onActiveChanged: {
+        detailsGeneration++;
+        refreshDetails();
+    }
+    Component.onCompleted: refreshDetails()
+
+    Timer {
+        interval: 10000
+        repeat: true
+        running: page.active
+        onTriggered: page.refreshDetails()
     }
 
-    onInterfaceNameChanged: clearRates()
+    Loader {
+        id: addressCommand
+        readonly property var provider: item
+        sourceComponent: page.commandComponent
+    }
 
-    function refreshNetwork() {
-        if (!active || inFlight) {
-            return;
-        }
-        var requestGeneration = generation;
-        inFlight = true;
-        netdevCommand.exec("cat /proc/net/dev", function(result) {
-            page.inFlight = false;
-            if (!page.active || requestGeneration !== page.generation) {
-                if (page.active) {
-                    Qt.callLater(page.refreshNetwork);
-                }
-                return;
-            }
-            if (result.exitCode !== 0) {
-                page.clearRates();
-                return;
-            }
+    Loader {
+        id: macCommand
+        readonly property var provider: item
+        sourceComponent: page.commandComponent
+    }
 
-            var candidates = [];
-            var selected = null;
-            var lines = result.stdout.split(/\n/);
-
-            for (var i = 2; i < lines.length; i++) {
-                var colon = lines[i].indexOf(":");
-                if (colon < 0) {
-                    continue;
-                }
-
-                var name = lines[i].slice(0, colon).trim();
-                var fields = lines[i].slice(colon + 1).trim().split(/\s+/);
-                if (fields.length < 16) {
-                    continue;
-                }
-
-                var rx = Number(fields[0]);
-                var tx = Number(fields[8]);
-                if (!isFinite(rx) || !isFinite(tx)) {
-                    continue;
-                }
-
-                var row = {
-                    name: name,
-                    rx: rx,
-                    tx: tx,
-                    total: rx + tx
-                };
-
-                if (name === page.interfaceName) {
-                    selected = row;
-                }
-                if (!page.isIgnoredInterface(name)) {
-                    candidates.push(row);
-                }
-            }
-
-            if (!selected && candidates.length > 0) {
-                candidates.sort(function(left, right) {
-                    return right.total - left.total;
-                });
-                selected = candidates[0];
-                if (page.interfaceName !== selected.name) {
-                    page.interfaceName = selected.name;
-                    page.refreshInterfaceDetails();
-                }
-            }
-
-            if (!selected) {
-                page.clearRates();
-                return;
-            }
-
-            var now = Date.now();
-            if (page.lastSampleTime > 0 && now > page.lastSampleTime
-                    && now - page.lastSampleTime <= Math.max(1000, page.rootItem.sensorUpdateRate) * 2.5
-                    && selected.rx >= page.lastRxBytes && selected.tx >= page.lastTxBytes) {
-                var seconds = Math.max(0.001, (now - page.lastSampleTime) / 1000);
-                page.downloadRate = Math.max(0, (selected.rx - page.lastRxBytes) / seconds);
-                page.uploadRate = Math.max(0, (selected.tx - page.lastTxBytes) / seconds);
-                page.chartTick += 1;
-            } else {
-                page.downloadRate = null;
-                page.uploadRate = null;
-            }
-
-            page.lastRxBytes = selected.rx;
-            page.lastTxBytes = selected.tx;
-            page.lastSampleTime = now;
-        });
+    Sensors.Sensor {
+        id: networkNameSensor
+        // Connection name or SSID for interfaces ksystemstats knows about.
+        sensorId: page.detailsAvailable ? "network/" + page.detailsInterface + "/network" : ""
+        enabled: page.active && sensorId.length > 0
+        updateRateLimit: 5000
     }
 
     component NetworkDetailRow: RowLayout {
@@ -237,55 +158,40 @@ Item {
             font.weight: Font.DemiBold
             font.pixelSize: Kirigami.Theme.smallFont.pixelSize
             elide: Text.ElideRight
-            Layout.preferredWidth: Kirigami.Units.gridUnit * 8
+            Layout.preferredWidth: Kirigami.Units.gridUnit * 10
         }
     }
 
-    onActiveChanged: {
-        generation++;
-        clearRates();
-        if (active) {
-            refreshRoute();
-            refreshNetwork();
-        }
-    }
-    Component.onCompleted: if (active) {
-        refreshRoute();
-        refreshNetwork();
-    }
+    component RateValue: ColumnLayout {
+        property string value: ""
+        property string label: ""
+        property color markerColor: Kirigami.Theme.focusColor
 
-    Timer {
-        interval: Math.max(1000, page.rootItem.sensorUpdateRate)
-        repeat: true
-        running: page.active
-        triggeredOnStart: false
-        onTriggered: {
-            page.refreshNetwork();
-            page.detailsTick += 1;
-            if (page.detailsTick % 5 === 0) {
-                page.refreshRoute();
+        Layout.fillWidth: true
+        spacing: Kirigami.Units.smallSpacing / 2
+
+        Controls.Label {
+            text: value
+            color: Kirigami.Theme.textColor
+            font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 1.45
+            font.weight: Font.DemiBold
+        }
+
+        RowLayout {
+            spacing: Kirigami.Units.smallSpacing / 2
+
+            Rectangle {
+                Layout.preferredWidth: 9
+                Layout.preferredHeight: 9
+                radius: 2
+                color: markerColor
+            }
+
+            Controls.Label {
+                text: label
+                color: Kirigami.Theme.disabledTextColor
             }
         }
-    }
-
-    Local.RunCommand {
-        id: routeCommand
-    }
-
-    Local.RunCommand {
-        id: netdevCommand
-    }
-
-    Local.RunCommand {
-        id: macCommand
-    }
-
-    Local.RunCommand {
-        id: addrCommand
-    }
-
-    Local.RunCommand {
-        id: wifiCommand
     }
 
     ColumnLayout {
@@ -294,71 +200,43 @@ Item {
 
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: Kirigami.Units.gridUnit * 4.3
+            Layout.preferredHeight: rateContent.implicitHeight + Kirigami.Units.largeSpacing * 2
             radius: Kirigami.Units.cornerRadius
             color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.04)
             border.width: 1
             border.color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08)
 
-            RowLayout {
+            ColumnLayout {
+                id: rateContent
+
                 anchors.fill: parent
                 anchors.margins: Kirigami.Units.largeSpacing
-                spacing: Kirigami.Units.largeSpacing
+                spacing: Kirigami.Units.smallSpacing / 2
 
-                ColumnLayout {
+                RowLayout {
                     Layout.fillWidth: true
-                    spacing: Kirigami.Units.smallSpacing / 2
+                    spacing: Kirigami.Units.largeSpacing
 
-                    Controls.Label {
-                        text: page.formatRate(page.uploadRate)
-                        color: Kirigami.Theme.textColor
-                        font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 1.45
-                        font.weight: Font.DemiBold
+                    RateValue {
+                        value: page.rootItem.networkUploadMonitor.text
+                        label: i18nc("@label", "Upload")
+                        markerColor: Kirigami.Theme.negativeTextColor
                     }
 
-                    RowLayout {
-                        spacing: Kirigami.Units.smallSpacing / 2
-
-                        Rectangle {
-                            Layout.preferredWidth: 9
-                            Layout.preferredHeight: 9
-                            radius: 2
-                            color: Kirigami.Theme.negativeTextColor
-                        }
-
-                        Controls.Label {
-                            text: i18nc("@label", "Upload")
-                            color: Kirigami.Theme.disabledTextColor
-                        }
+                    RateValue {
+                        value: page.rootItem.networkDownloadMonitor.text
+                        label: i18nc("@label", "Download")
+                        markerColor: Kirigami.Theme.focusColor
                     }
                 }
 
-                ColumnLayout {
+                // Names the scope so combined and single-interface rates are never confused.
+                Controls.Label {
+                    text: page.scope.scopeText
+                    color: Kirigami.Theme.disabledTextColor
+                    font.pixelSize: Kirigami.Theme.smallFont.pixelSize
+                    elide: Text.ElideRight
                     Layout.fillWidth: true
-                    spacing: Kirigami.Units.smallSpacing / 2
-
-                    Controls.Label {
-                        text: page.formatRate(page.downloadRate)
-                        color: Kirigami.Theme.textColor
-                        font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 1.45
-                        font.weight: Font.DemiBold
-                    }
-
-                    RowLayout {
-                        spacing: Kirigami.Units.smallSpacing / 2
-
-                        Rectangle {
-                            Layout.preferredWidth: 9
-                            Layout.preferredHeight: 9
-                            radius: 2
-                            color: Kirigami.Theme.focusColor
-                        }
-
-                        Controls.Label {
-                            text: i18nc("@label", "Download")
-                            color: Kirigami.Theme.disabledTextColor
-                        }
-                    }
                 }
             }
         }
@@ -399,13 +277,15 @@ Item {
 
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: Kirigami.Units.gridUnit * 6.1
+            Layout.preferredHeight: detailsContent.implicitHeight + Kirigami.Units.smallSpacing * 2
             radius: Kirigami.Units.cornerRadius
             color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.04)
             border.width: 1
             border.color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08)
 
             ColumnLayout {
+                id: detailsContent
+
                 anchors.fill: parent
                 anchors.margins: Kirigami.Units.smallSpacing
                 spacing: Kirigami.Units.smallSpacing / 2
@@ -419,28 +299,30 @@ Item {
                 }
 
                 NetworkDetailRow {
-                    label: i18nc("@label", "Public IP")
-                    value: page.publicIp
-                }
-
-                NetworkDetailRow {
-                    label: i18nc("@label", "Local IP")
-                    value: page.localIp
-                }
-
-                NetworkDetailRow {
-                    label: i18nc("@label", "Interface")
-                    value: page.niceInterfaceName(page.interfaceName)
+                    label: page.scope.detailsDescribeRoute ? i18nc("@label interface used by the default route", "Default route")
+                        : i18nc("@label", "Interface")
+                    value: page.detailsAvailable ? page.scope.labels.interfaceLabel(page.detailsInterface)
+                        : i18nc("@info:status", "N/A")
                 }
 
                 NetworkDetailRow {
                     label: i18nc("@label", "Network")
-                    value: page.networkName
+                    value: page.detailsAvailable ? page.networkName : i18nc("@info:status", "N/A")
+                }
+
+                NetworkDetailRow {
+                    label: i18nc("@label", "Local IP")
+                    value: page.orMissing(page.localIp)
                 }
 
                 NetworkDetailRow {
                     label: i18nc("@label", "Physical address")
-                    value: page.physicalAddress
+                    value: page.orMissing(page.physicalAddress)
+                }
+
+                NetworkDetailRow {
+                    label: i18nc("@label", "Public IP")
+                    value: page.publicIp
                 }
             }
         }

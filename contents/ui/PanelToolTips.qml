@@ -81,6 +81,7 @@ Item {
 
     readonly property string networkTitle: i18nc("@info:tooltip", "Network")
     readonly property string networkText: lines([
+        rootItem.networkModel ? rootItem.networkModel.scopeText : "",
         i18nc("@info:tooltip", "Download: %1", monitorText(rootItem.networkDownloadMonitor)),
         i18nc("@info:tooltip", "Upload: %1", monitorText(rootItem.networkUploadMonitor))
     ])

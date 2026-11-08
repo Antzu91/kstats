@@ -66,6 +66,26 @@ Missing or stale sensor readings show `N/A`; an actual zero remains a valid
 reading. Sensor monitoring retries after backend failures without changing the
 configured sensor or GPU selection.
 
+## Network source
+
+Choose `Network source` in the widget settings. The panel, popup, tooltip, and
+history always measure the same source, and the popup names it:
+
+- **All interfaces (combined)**: the default. KDE's aggregate of every interface;
+  virtual and VPN interfaces can count the same traffic more than once.
+- **Automatic (default route)**: the interface used by the default IPv4 route,
+  or IPv6 when there is none, rechecked every 10 seconds. It shows `N/A` when no
+  route resolves instead of guessing another interface.
+- **A specific interface**: always measured, even while disconnected.
+- **Custom sensor IDs**: uses the `Network down` and `Network up` sensor IDs.
+  Configurations from earlier versions with non-default network sensor IDs keep
+  working as Custom.
+
+Interfaces come from KSystemStats, which lists the interfaces it monitors (with
+NetworkManager, the managed ones). Changing the source starts a new history
+series. The popup details describe the measured interface, or the default-route
+interface for combined and custom sources.
+
 ## Development checks
 
 Run the QML behavior tests with Qt 6 Quick Test installed:
