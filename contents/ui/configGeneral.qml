@@ -88,6 +88,31 @@ KCM.SimpleKCM {
     property Local.ModuleCatalog moduleCatalog: Local.ModuleCatalog {}
     readonly property var moduleOrderList: ModuleCatalog.normalizeOrder(root.cfg_moduleOrder)
 
+    readonly property string activePreset: PanelPresentation.matchingPreset({
+        cpu: { presentation: root.cfg_cpuPresentation, label: root.cfg_cpuShowLabel },
+        memory: { presentation: root.cfg_memoryPresentation, label: root.cfg_memoryShowLabel },
+        gpu: { presentation: root.cfg_gpuPresentation, label: root.cfg_gpuShowLabel },
+        disk: { presentation: root.cfg_diskPresentation, label: root.cfg_diskShowLabel },
+        network: { presentation: root.cfg_networkPresentation, label: root.cfg_networkShowLabel }
+    })
+
+    function applyPreset(name) {
+        var preset = PanelPresentation.presets[name];
+        if (!preset) {
+            return;
+        }
+        root.cfg_cpuPresentation = preset.presentation.cpu;
+        root.cfg_memoryPresentation = preset.presentation.memory;
+        root.cfg_gpuPresentation = preset.presentation.gpu;
+        root.cfg_diskPresentation = preset.presentation.disk;
+        root.cfg_networkPresentation = preset.presentation.network;
+        root.cfg_cpuShowLabel = preset.labels;
+        root.cfg_memoryShowLabel = preset.labels;
+        root.cfg_gpuShowLabel = preset.labels;
+        root.cfg_diskShowLabel = preset.labels;
+        root.cfg_networkShowLabel = preset.labels;
+    }
+
     function presentationLabel(mode) {
         switch (mode) {
         case "number":
@@ -133,6 +158,7 @@ KCM.SimpleKCM {
         }
 
         Controls.ComboBox {
+            objectName: moduleRow.moduleId + "Presentation"
             enabled: moduleRow.shown
             model: moduleRow.modes.map(mode => root.presentationLabel(mode))
             currentIndex: moduleRow.modes.indexOf(PanelPresentation.presentation(moduleRow.moduleId, moduleRow.presentation))
@@ -494,6 +520,32 @@ KCM.SimpleKCM {
             font: Kirigami.Theme.smallFont
             color: Kirigami.Theme.disabledTextColor
             text: i18nc("@info", "Sends a request to api64.ipify.org, which sees your public IP address. Only when the Network page opens or you press Refresh; never in the background.")
+        }
+
+        // Explicit actions: a preset only rewrites display styles and labels.
+        RowLayout {
+            Kirigami.FormData.label: i18nc("@label", "Preset:")
+            spacing: Kirigami.Units.smallSpacing
+
+            Repeater {
+                model: [
+                    { name: "current", text: i18nc("@action:button panel preset", "Current") },
+                    { name: "compact", text: i18nc("@action:button panel preset", "Compact") },
+                    { name: "graphs", text: i18nc("@action:button panel preset", "Graph-focused") }
+                ]
+
+                delegate: Controls.Button {
+                    required property var modelData
+
+                    objectName: "preset-" + modelData.name
+                    text: modelData.text
+                    checkable: false
+                    highlighted: root.activePreset === modelData.name
+                    onClicked: root.applyPreset(modelData.name)
+                    Controls.ToolTip.visible: hovered
+                    Controls.ToolTip.text: i18nc("@info:tooltip", "Changes only how modules are drawn and their labels. Visibility, order, fonts and sensors stay as they are.")
+                }
+            }
         }
 
         Controls.CheckBox {

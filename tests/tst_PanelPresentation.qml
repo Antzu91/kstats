@@ -29,4 +29,16 @@ TestCase {
         compare(PanelPresentation.networkParts("graph"), { numbers: false, graph: true });
         compare(PanelPresentation.networkParts("numbersGraph"), { numbers: true, graph: true });
     }
+
+    function test_matchingPreset() {
+        var settings = {};
+        ["cpu", "memory", "gpu", "disk", "network"].forEach(function(id) {
+            settings[id] = { presentation: PanelPresentation.presets.current.presentation[id], label: true };
+        });
+        compare(PanelPresentation.matchingPreset(settings), "current");
+        // Unset values read as defaults, which is the Current preset.
+        compare(PanelPresentation.matchingPreset({}), "current");
+        settings.disk.label = false;
+        compare(PanelPresentation.matchingPreset(settings), "");
+    }
 }

@@ -34,3 +34,37 @@ function parts(mode) {
 function networkParts(mode) {
     return { numbers: mode !== "graph", graph: mode === "graph" || mode === "numbersGraph" };
 }
+
+// Presets change only presentations and labels; visibility, order, fonts,
+// sources and monochrome stay as configured. "current" is the original look.
+var presets = {
+    current: {
+        presentation: { cpu: "numberGraph", memory: "numberGraph", gpu: "numberGraph", disk: "bar", network: "numbers" },
+        labels: true
+    },
+    compact: {
+        presentation: { cpu: "number", memory: "number", gpu: "number", disk: "number", network: "numbers" },
+        labels: true
+    },
+    graphs: {
+        presentation: { cpu: "graph", memory: "graph", gpu: "graph", disk: "graph", network: "graph" },
+        labels: true
+    }
+};
+var presetNames = ["current", "compact", "graphs"];
+var moduleIds = ["cpu", "memory", "gpu", "disk", "network"];
+
+// settings: { cpu: { presentation, label }, ... } -> matching preset name or "".
+function matchingPreset(settings) {
+    for (var p = 0; p < presetNames.length; ++p) {
+        var preset = presets[presetNames[p]];
+        var matches = moduleIds.every(function(id) {
+            var module = settings[id] || {};
+            return presentation(id, module.presentation) === preset.presentation[id] && (module.label !== false) === preset.labels;
+        });
+        if (matches) {
+            return presetNames[p];
+        }
+    }
+    return "";
+}

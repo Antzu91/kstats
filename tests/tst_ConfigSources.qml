@@ -187,4 +187,44 @@ TestCase {
         compare(page.cfg_monochrome, false);
         compare(page.presentationLabel("numbersGraph"), "Numbers and graph");
     }
+
+    function test_presetsChangeOnlyPresentation() {
+        var page = make({ cfg_showGpu: true, cfg_showDisk: false, cfg_barLabelFontSize: 14, cfg_compactBarLength: 300,
+            cfg_moduleOrder: "network,cpu,memory,gpu,disk", cfg_monochrome: true, cfg_cpuSensorId: "cpu/cpu0/usage" });
+        compare(page.activePreset, "current");
+        page.applyPreset("graphs");
+        compare(page.activePreset, "graphs");
+        compare(page.cfg_cpuPresentation, "graph");
+        compare(page.cfg_networkPresentation, "graph");
+        page.applyPreset("compact");
+        compare(page.activePreset, "compact");
+        compare(page.cfg_diskPresentation, "number");
+        // Everything outside presentation is untouched.
+        compare(page.cfg_showGpu, true);
+        compare(page.cfg_showDisk, false);
+        compare(page.cfg_barLabelFontSize, 14);
+        compare(page.cfg_compactBarLength, 300);
+        compare(page.cfg_moduleOrder, "network,cpu,memory,gpu,disk");
+        compare(page.cfg_monochrome, true);
+        compare(page.cfg_cpuSensorId, "cpu/cpu0/usage");
+        page.applyPreset("unknown");
+        compare(page.activePreset, "compact");
+    }
+
+    function test_presetUpdatesControlsEvenAfterUserEdits() {
+        var page = make();
+        var cpuCombo = findChild(page, "cpuPresentation");
+        verify(cpuCombo !== null);
+        compare(cpuCombo.currentIndex, 2);
+        // A user edit breaks the declarative binding; the handler restores it.
+        cpuCombo.currentIndex = 0;
+        cpuCombo.activated(0);
+        compare(page.cfg_cpuPresentation, "number");
+        compare(page.activePreset, "");
+        page.applyPreset("graphs");
+        compare(cpuCombo.currentIndex, 1);
+        page.applyPreset("current");
+        compare(cpuCombo.currentIndex, 2);
+        verify(findChild(page, "preset-current").highlighted);
+    }
 }
