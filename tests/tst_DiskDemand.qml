@@ -146,8 +146,44 @@ TestCase {
         compare(requests.length, 1);
         finish();
         compare(fixture.page.refreshInFlight, false);
+        // Discovery is fresh, so the next refresh only samples activity.
         fixture.page.refresh();
         compare(requests.length, 4);
+        compare(requests[3], "cat /proc/diskstats");
+        deliver("8 0 sda 3 0 60 0 2 0 80 0\n");
+        compare(fixture.page.refreshInFlight, false);
+        compare(fixture.page.disks.length, 1);
+        compare(fixture.page.disks[0].percent, 10);
+    }
+
+    function test_discoveryRefreshesAfterInterval() {
+        var time = 100000;
+        var fixture = make({ diskTab: true, popupOpen: true });
+        fixture.page.clock = function() { return time; };
+        finish();
+        time += 29000;
+        fixture.page.refresh();
+        compare(requests[requests.length - 1], "cat /proc/diskstats");
+        deliver("8 0 sda 1 0 20 0 1 0 40 0\n");
+        time += 2000;
+        fixture.page.refresh();
+        verify(requests[requests.length - 1].indexOf("lsblk") === 0);
+        finish();
+        // A clock moving backwards never trusts the cached layout.
+        time -= 60000;
+        fixture.page.refresh();
+        verify(requests[requests.length - 1].indexOf("lsblk") === 0);
+        finish();
+    }
+
+    function test_failedFilesystemUsageIsNotCached() {
+        var fixture = make({ diskTab: true, popupOpen: true });
+        deliver('{"blockdevices":[{"name":"sda","type":"disk","size":100000,"mountpoints":["/"]}]}');
+        deliver("", 1);
+        deliver("8 0 sda 1 0 20 0 1 0 40 0\n");
+        compare(fixture.page.layoutSnapshot, null);
+        fixture.page.refresh();
+        verify(requests[requests.length - 1].indexOf("lsblk") === 0);
         finish();
     }
 

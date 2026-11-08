@@ -36,6 +36,12 @@ Item {
     property bool completed: false
     property bool refreshInFlight: false
     property int refreshGeneration: 0
+    // Discovery (lsblk, df) runs on activation and then at most this often;
+    // activity (/proc/diskstats) is sampled on every refresh.
+    property int layoutRefreshInterval: 30000
+    property var clock: function() { return Date.now(); }
+    property var layoutSnapshot: null
+    property real layoutTime: 0
     readonly property real sectionSpacing: Kirigami.Units.smallSpacing * 1.15
     readonly property real switchHeight: Kirigami.Units.gridUnit * 2.1
     readonly property var scope: rootItem.diskScope
@@ -382,6 +388,7 @@ Item {
             return;
         }
         refreshGeneration++;
+        layoutSnapshot = null;
         previousDiskStats = ({});
         previousDiskStatsTime = 0;
         if (active) {
@@ -401,14 +408,40 @@ Item {
         return false;
     }
 
+    // Only rows and mount rows are needed after filesystem usage is applied.
+    function copyLayout(layout) {
+        return {
+            rows: JSON.parse(JSON.stringify(layout.rows)),
+            mountRows: JSON.parse(JSON.stringify(layout.mountRows))
+        };
+    }
+
+    function layoutIsFresh(now) {
+        return layoutSnapshot !== null && now >= layoutTime && now - layoutTime < layoutRefreshInterval;
+    }
+
+    function readStats(generation, layout) {
+        statsCommand.provider.exec("cat /proc/diskstats", function(statsResult) {
+            if (!page || !page.acceptResult(generation)) {
+                return;
+            }
+            page.finishRefresh(layout, statsResult.exitCode === 0 ? statsResult.stdout : "");
+            page.refreshInFlight = false;
+        });
+    }
+
     function refresh() {
         if (!completed || !active || refreshInFlight) {
             return;
         }
         refreshInFlight = true;
         var generation = refreshGeneration;
+        if (layoutIsFresh(clock())) {
+            readStats(generation, copyLayout(layoutSnapshot));
+            return;
+        }
         layoutCommand.provider.exec("lsblk -b -J -o NAME,KNAME,TYPE,SIZE,MODEL,PKNAME,MOUNTPOINTS", function(layoutResult) {
-            if (!page.acceptResult(generation)) {
+            if (!page || !page.acceptResult(generation)) {
                 return;
             }
             if (layoutResult.exitCode !== 0) {
@@ -431,20 +464,16 @@ Item {
             }
 
             usageCommand.provider.exec("df -P -B1 -x tmpfs -x devtmpfs -x squashfs -x overlay -x efivarfs", function(usageResult) {
-                if (!page.acceptResult(generation)) {
+                if (!page || !page.acceptResult(generation)) {
                     return;
                 }
                 if (usageResult.exitCode === 0) {
                     page.applyFilesystemUsage(layout, usageResult.stdout);
+                    // Reuse only complete discovery; a failed df retries next time.
+                    page.layoutSnapshot = page.copyLayout(layout);
+                    page.layoutTime = page.clock();
                 }
-
-                statsCommand.provider.exec("cat /proc/diskstats", function(statsResult) {
-                    if (!page.acceptResult(generation)) {
-                        return;
-                    }
-                    page.finishRefresh(layout, statsResult.exitCode === 0 ? statsResult.stdout : "");
-                    page.refreshInFlight = false;
-                });
+                page.readStats(generation, layout);
             });
         });
     }
