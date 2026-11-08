@@ -66,6 +66,18 @@ Missing or stale sensor readings show `N/A`; an actual zero remains a valid
 reading. Sensor monitoring retries after backend failures without changing the
 configured sensor or GPU selection.
 
+## Panel tooltips and disk activity
+
+Hovering a panel module shows a tooltip for that module only: CPU usage with its
+user/system split, memory usage with used and total bytes, GPU usage, memory and
+temperature, disk usage with read/write rates, or network rates with their source.
+
+The Disk page charts the configured read and write sensors (`disk/all/read` and
+`disk/all/write` by default) using the same history window. Linux serves most
+reads from memory, so read activity is often near zero even while applications
+read files, while writes still reach the disk. Per-disk rows show each physical
+disk's current rate.
+
 ## Network source
 
 Choose `Network source` in the widget settings. The panel, popup, tooltip, and
@@ -143,6 +155,8 @@ Implemented:
 - CPU, memory, disk, network sensors, plus optional GPU utilization in the panel
 - CPU model plus auto-discovered CPU temperature and fan sensors
 - configurable sensor IDs and update interval
+- per-module panel tooltips
+- disk read/write activity history and a shared network source
 - auto-discovered GPU usage, memory, and temperature sensors
 
 Not implemented yet:
