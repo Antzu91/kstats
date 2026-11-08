@@ -248,13 +248,9 @@ Item {
         anchors.fill: parent
         spacing: Kirigami.Units.smallSpacing
 
-        Rectangle {
+        Local.Card {
             Layout.fillWidth: true
             Layout.preferredHeight: rateContent.implicitHeight + Kirigami.Units.largeSpacing * 2
-            radius: Kirigami.Units.cornerRadius
-            color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.04)
-            border.width: 1
-            border.color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08)
 
             ColumnLayout {
                 id: rateContent
@@ -291,13 +287,9 @@ Item {
             }
         }
 
-        Rectangle {
+        Local.Card {
             Layout.fillWidth: true
             Layout.preferredHeight: Kirigami.Units.gridUnit * 5.2
-            radius: Kirigami.Units.cornerRadius
-            color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.04)
-            border.width: 1
-            border.color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08)
 
             ColumnLayout {
                 anchors.fill: parent
@@ -325,13 +317,9 @@ Item {
             }
         }
 
-        Rectangle {
+        Local.Card {
             Layout.fillWidth: true
             Layout.preferredHeight: detailsContent.implicitHeight + Kirigami.Units.smallSpacing * 2
-            radius: Kirigami.Units.cornerRadius
-            color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.04)
-            border.width: 1
-            border.color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08)
 
             ColumnLayout {
                 id: detailsContent

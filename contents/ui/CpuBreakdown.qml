@@ -4,8 +4,9 @@ import QtQuick.Layouts
 import "History.js" as History
 
 import org.kde.kirigami as Kirigami
+import "." as Local
 
-Rectangle {
+Local.Card {
     id: root
 
     required property CpuHistory detailHistory
@@ -19,10 +20,6 @@ Rectangle {
         : detailHistory.errorCode === "format"
             ? i18nc("@info:status", "Unexpected CPU detail format") : ""
 
-    radius: Kirigami.Units.cornerRadius
-    color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.04)
-    border.width: 1
-    border.color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08)
 
     Layout.fillWidth: true
     implicitHeight: Kirigami.Units.gridUnit * 8

@@ -6,7 +6,7 @@ import "CpuCounters.js" as CpuCounters
 import org.kde.kirigami as Kirigami
 import "." as Local
 
-Rectangle {
+Local.Card {
     id: root
 
     property int refreshInterval: 1500
@@ -22,10 +22,6 @@ Rectangle {
     property var cores: []
     property string errorText: ""
 
-    radius: Kirigami.Units.cornerRadius
-    color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.04)
-    border.width: 1
-    border.color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08)
 
     Layout.fillWidth: true
     implicitHeight: Kirigami.Units.gridUnit * 4.6

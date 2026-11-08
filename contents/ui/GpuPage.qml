@@ -29,17 +29,13 @@ Item {
             Repeater {
                 model: page.gpuDevices
 
-                delegate: Rectangle {
+                delegate: Local.Card {
                     id: gpuCard
 
                     required property var modelData
 
                     Layout.fillWidth: true
                     Layout.preferredHeight: gpuCardContent.implicitHeight + Kirigami.Units.largeSpacing * 2
-                    radius: Kirigami.Units.cornerRadius
-                    color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.04)
-                    border.width: 1
-                    border.color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08)
 
                     readonly property var monitors: page.rootItem.gpuMonitors(modelData.key)
                     readonly property var usage: monitors ? monitors.usage : null

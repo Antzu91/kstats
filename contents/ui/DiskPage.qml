@@ -584,13 +584,9 @@ Item {
 
         // The same capacity reading as the panel, with its scope, then the
         // activity history collected in the background while the module is shown.
-        Rectangle {
+        Local.Card {
             width: parent.width
             height: summaryContent.implicitHeight + Kirigami.Units.smallSpacing * 2
-            radius: Kirigami.Units.cornerRadius
-            color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.04)
-            border.width: 1
-            border.color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08)
 
             ColumnLayout {
                 id: summaryContent
@@ -713,16 +709,12 @@ Item {
         Repeater {
             model: page.currentView === 0 ? page.disks : []
 
-            delegate: Rectangle {
+            delegate: Local.Card {
                 required property var modelData
 
                 width: parent.width
                 height: page.diskRowHeight
                 clip: true
-                radius: Kirigami.Units.cornerRadius
-                color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.04)
-                border.width: 1
-                border.color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08)
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -876,16 +868,12 @@ Item {
         Repeater {
             model: page.currentView === 1 ? page.mounts : []
 
-            delegate: Rectangle {
+            delegate: Local.Card {
                 required property var modelData
 
                 width: parent.width
                 height: page.diskRowHeight
                 clip: true
-                radius: Kirigami.Units.cornerRadius
-                color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.04)
-                border.width: 1
-                border.color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08)
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -964,7 +952,7 @@ Item {
         Repeater {
             model: page.currentView === 2 ? page.disks : []
 
-            delegate: Rectangle {
+            delegate: Local.Card {
                 id: healthCard
 
                 required property var modelData
@@ -975,9 +963,6 @@ Item {
                 width: parent.width
                 height: page.diskRowHeight
                 clip: true
-                radius: Kirigami.Units.cornerRadius
-                color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.04)
-                border.width: 1
                 border.color: healthCard.status === "failing" || healthCard.status === "warning"
                     ? Qt.rgba(page.healthColor(healthCard.status).r, page.healthColor(healthCard.status).g, page.healthColor(healthCard.status).b, 0.45)
                     : Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08)
