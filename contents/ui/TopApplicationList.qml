@@ -4,11 +4,26 @@ import QtQuick.Layouts
 
 import org.kde.kirigami as Kirigami
 import org.kde.ksysguard.process as Process
+import "." as Local
 
 ColumnLayout {
     id: root
 
     property bool active: visible
+    // A collapsed list stops polling the process model.
+    property bool expanded: true
+    // Updated imperatively and applied later: enabling the process model emits
+    // model signals that resize the page, which would re-enter a binding here.
+    property bool collecting: false
+    signal expandToggleRequested()
+
+    function updateCollecting() {
+        var next = root.active && root.expanded;
+        if (next !== root.collecting) {
+            root.collecting = next;
+            Qt.callLater(root.rebuild);
+        }
+    }
     property string metric: "cpu"
     property int limit: 5
     property int refreshInterval: 1500
@@ -24,7 +39,7 @@ ColumnLayout {
     Layout.minimumHeight: implicitHeight
     Layout.preferredHeight: implicitHeight
     clip: true
-    implicitHeight: header.implicitHeight + root.spacing + root.listAreaHeight
+    implicitHeight: header.implicitHeight + (expanded ? root.spacing + root.listAreaHeight : 0)
 
     function metricTitle() {
         if (metric === "memory") {
@@ -90,7 +105,7 @@ ColumnLayout {
     }
 
     function rebuild() {
-        if (!root.active || !appModel.available) {
+        if (!root.collecting || !appModel.available) {
             root.applications = [];
             root.maxValue = 1;
             return;
@@ -159,16 +174,18 @@ ColumnLayout {
         root.applications = rows.slice(0, root.limit);
     }
 
-    Component.onCompleted: rebuild()
-    onMetricChanged: rebuild()
-    onActiveChanged: if (active) {
+    Component.onCompleted: {
+        updateCollecting();
         rebuild();
     }
+    onActiveChanged: Qt.callLater(root.updateCollecting)
+    onExpandedChanged: Qt.callLater(root.updateCollecting)
+    onMetricChanged: rebuild()
 
     Timer {
         interval: root.refreshInterval
         repeat: true
-        running: root.active
+        running: root.collecting
         triggeredOnStart: false
         onTriggered: root.rebuild()
     }
@@ -196,7 +213,7 @@ ColumnLayout {
             "ioCharactersActuallyWrittenRate"
         ]
 
-        enabled: root.active
+        enabled: root.collecting
 
         cgroupMapping: {
             "session.slice": "services",
@@ -235,28 +252,19 @@ ColumnLayout {
         }
     }
 
-    RowLayout {
+    Local.SectionHeader {
         id: header
 
-        Layout.fillWidth: true
-        spacing: Kirigami.Units.smallSpacing
-
-        Controls.Label {
-            text: i18nc("@label", "Top Applications")
-            font.weight: Font.DemiBold
-            Layout.fillWidth: true
-        }
-
-        Controls.Label {
-            text: root.metricTitle()
-            color: Kirigami.Theme.disabledTextColor
-            font.pixelSize: Kirigami.Theme.smallFont.pixelSize
-        }
+        title: i18nc("@label", "Top Applications")
+        trailingText: root.metricTitle()
+        expanded: root.expanded
+        onToggleRequested: root.expandToggleRequested()
     }
 
     Item {
         id: listArea
 
+        visible: root.expanded
         Layout.fillWidth: true
         Layout.preferredHeight: root.listAreaHeight
         Layout.minimumHeight: root.listAreaHeight

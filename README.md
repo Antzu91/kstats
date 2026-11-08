@@ -80,6 +80,15 @@ only display styles and labels, never visibility, order, fonts, or sensors.
 the same order; a module hidden from the panel keeps its popup tab. With every
 module hidden, the panel shows the KStats icon, which still opens the popup.
 
+## Popup density and sections
+
+`Popup density` in the widget settings is `Comfortable` (the default) or
+`Compact`, which tightens spacing, shortens charts, hides chart titles, and starts
+secondary sections collapsed. `Details` and `Top Applications` headers collapse or
+expand their section with a click, Enter, or Space; KStats remembers each choice
+per page. A collapsed Top Applications list stops polling processes. Pages scroll
+when the popup is too short for their content.
+
 ## Keyboard
 
 Panel modules are buttons: reach them with Tab and open their page with Enter or

@@ -60,6 +60,9 @@ TestCase {
                 function refresh() { return false; }
             }
             function setPublicIpLookupEnabled(enabled) {}
+            property QtObject popupMetrics: Local.PopupMetrics {}
+            function sectionExpanded(key) { return true; }
+            function setSectionExpanded(key, expanded) {}
             property alias page: page
             function historyCoverageText(samples) { return ""; }
             property string initialSource: "interface:eno1"

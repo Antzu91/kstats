@@ -194,7 +194,7 @@ Item {
         id: pageContent
 
         anchors.fill: parent
-        spacing: Kirigami.Units.smallSpacing
+        spacing: page.rootItem.popupMetrics.pageSpacing
 
         Local.Card {
             Layout.fillWidth: true
@@ -260,7 +260,7 @@ Item {
 
         Local.Card {
             Layout.fillWidth: true
-            Layout.preferredHeight: Kirigami.Units.gridUnit * 4.7
+            Layout.preferredHeight: page.rootItem.popupMetrics.memoryChartHeight
             clip: true
 
             ColumnLayout {
@@ -269,6 +269,7 @@ Item {
                 spacing: Kirigami.Units.smallSpacing
 
                 Controls.Label {
+                    visible: page.rootItem.popupMetrics.chartTitles
                     text: i18nc("@label history and coverage", "Usage History · %1", page.rootItem.historyCoverageText(page.rootItem.memoryUsageSamples))
                     color: Kirigami.Theme.disabledTextColor
                     font.weight: Font.DemiBold
@@ -301,15 +302,17 @@ Item {
                 anchors.margins: Kirigami.Units.smallSpacing
                 spacing: Kirigami.Units.smallSpacing / 2
 
-                Controls.Label {
-                    text: i18nc("@label", "Details")
-                    color: Kirigami.Theme.disabledTextColor
-                    font.weight: Font.DemiBold
-                    horizontalAlignment: Text.AlignHCenter
-                    Layout.fillWidth: true
+                Local.SectionHeader {
+                    id: memoryDetailsHeader
+                    title: i18nc("@label", "Details")
+                    centered: true
+                    titleColor: Kirigami.Theme.disabledTextColor
+                    expanded: page.rootItem.sectionExpanded("ram.details")
+                    onToggleRequested: page.rootItem.setSectionExpanded("ram.details", !expanded)
                 }
 
                 GridLayout {
+                    visible: memoryDetailsHeader.expanded
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     columns: 2
@@ -349,7 +352,15 @@ Item {
             Layout.preferredHeight: implicitHeight
             metric: "memory"
             limit: 5
+            expanded: page.rootItem.sectionExpanded("ram.apps")
+            onExpandToggleRequested: page.rootItem.setSectionExpanded("ram.apps", !expanded)
             refreshInterval: Math.max(1500, page.rootItem.sensorUpdateRate * 2)
+        }
+
+        // Absorbs spare height so short content stays packed at the top
+        // instead of being spread out as gaps between cards.
+        Item {
+            Layout.fillHeight: true
         }
     }
 }

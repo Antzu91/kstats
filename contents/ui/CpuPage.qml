@@ -211,7 +211,7 @@ Item {
         id: pageContent
 
         anchors.fill: parent
-        spacing: Kirigami.Units.smallSpacing
+        spacing: page.rootItem.popupMetrics.pageSpacing
 
         Local.Card {
             Layout.fillWidth: true
@@ -280,7 +280,7 @@ Item {
         Local.CpuCoreBars {
             active: page.rootItem.cpuDetailsVisible
             Layout.fillWidth: true
-            Layout.preferredHeight: Kirigami.Units.gridUnit * 4.6
+            Layout.preferredHeight: page.rootItem.popupMetrics.cpuCoresHeight
             refreshInterval: Math.max(1000, page.rootItem.sensorUpdateRate)
         }
 
@@ -289,7 +289,7 @@ Item {
             windowDuration: page.rootItem.historyWindowDuration
             now: page.rootItem.historyNow
             Layout.fillWidth: true
-            Layout.preferredHeight: Kirigami.Units.gridUnit * 5.8
+            Layout.preferredHeight: page.rootItem.popupMetrics.cpuHistoryHeight
         }
 
         Local.TopApplicationList {
@@ -298,7 +298,15 @@ Item {
             Layout.preferredHeight: implicitHeight
             metric: "cpu"
             limit: 5
+            expanded: page.rootItem.sectionExpanded("cpu.apps")
+            onExpandToggleRequested: page.rootItem.setSectionExpanded("cpu.apps", !expanded)
             refreshInterval: Math.max(1500, page.rootItem.sensorUpdateRate * 2)
+        }
+
+        // Absorbs spare height so short content stays packed at the top
+        // instead of being spread out as gaps between cards.
+        Item {
+            Layout.fillHeight: true
         }
     }
 }

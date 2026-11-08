@@ -246,7 +246,7 @@ Item {
         id: pageContent
 
         anchors.fill: parent
-        spacing: Kirigami.Units.smallSpacing
+        spacing: page.rootItem.popupMetrics.pageSpacing
 
         Local.Card {
             Layout.fillWidth: true
@@ -289,7 +289,7 @@ Item {
 
         Local.Card {
             Layout.fillWidth: true
-            Layout.preferredHeight: Kirigami.Units.gridUnit * 5.2
+            Layout.preferredHeight: page.rootItem.popupMetrics.networkChartHeight
 
             ColumnLayout {
                 anchors.fill: parent
@@ -297,6 +297,7 @@ Item {
                 spacing: Kirigami.Units.smallSpacing
 
                 Controls.Label {
+                    visible: page.rootItem.popupMetrics.chartTitles
                     text: i18nc("@label history and coverage", "Usage History · %1", page.rootItem.historyCoverageText(page.rootItem.networkDownloadSamples))
                     color: Kirigami.Theme.disabledTextColor
                     font.weight: Font.DemiBold
@@ -328,15 +329,17 @@ Item {
                 anchors.margins: Kirigami.Units.smallSpacing
                 spacing: Kirigami.Units.smallSpacing / 2
 
-                Controls.Label {
-                    text: i18nc("@label", "Details")
-                    color: Kirigami.Theme.disabledTextColor
-                    font.weight: Font.DemiBold
-                    horizontalAlignment: Text.AlignHCenter
-                    Layout.fillWidth: true
+                Local.SectionHeader {
+                    id: networkDetailsHeader
+                    title: i18nc("@label", "Details")
+                    centered: true
+                    titleColor: Kirigami.Theme.disabledTextColor
+                    expanded: page.rootItem.sectionExpanded("net.details")
+                    onToggleRequested: page.rootItem.setSectionExpanded("net.details", !expanded)
                 }
 
                 NetworkDetailRow {
+                    visible: networkDetailsHeader.expanded
                     label: page.scope.detailsDescribeRoute ? i18nc("@label interface used by the default route", "Default route")
                         : i18nc("@label", "Interface")
                     value: page.detailsAvailable ? page.scope.labels.interfaceLabel(page.detailsInterface)
@@ -344,21 +347,25 @@ Item {
                 }
 
                 NetworkDetailRow {
+                    visible: networkDetailsHeader.expanded
                     label: i18nc("@label", "Network")
                     value: page.detailsAvailable ? page.networkName : i18nc("@info:status", "N/A")
                 }
 
                 NetworkDetailRow {
+                    visible: networkDetailsHeader.expanded
                     label: i18nc("@label", "Local IP")
                     value: page.orMissing(page.localIp)
                 }
 
                 NetworkDetailRow {
+                    visible: networkDetailsHeader.expanded
                     label: i18nc("@label", "Physical address")
                     value: page.orMissing(page.physicalAddress)
                 }
 
                 RowLayout {
+                    visible: networkDetailsHeader.expanded
                     Layout.fillWidth: true
                     spacing: Kirigami.Units.smallSpacing
 
@@ -441,7 +448,15 @@ Item {
             Layout.preferredHeight: implicitHeight
             metric: "network"
             limit: 5
+            expanded: page.rootItem.sectionExpanded("net.apps")
+            onExpandToggleRequested: page.rootItem.setSectionExpanded("net.apps", !expanded)
             refreshInterval: Math.max(3000, page.rootItem.sensorUpdateRate * 3)
+        }
+
+        // Absorbs spare height so short content stays packed at the top
+        // instead of being spread out as gaps between cards.
+        Item {
+            Layout.fillHeight: true
         }
     }
 }

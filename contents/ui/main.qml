@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import "History.js" as History
 import "ModuleCatalog.js" as ModuleCatalog
+import "SectionState.js" as SectionState
 
 import org.kde.kirigami as Kirigami
 import org.kde.ksysguard.sensors as Sensors
@@ -54,6 +55,9 @@ PlasmoidItem {
     // Module IDs in the configured order; the panel and popup tabs follow it.
     readonly property var moduleOrder: ModuleCatalog.normalizeOrder(Plasmoid.configuration.moduleOrder)
     property alias modules: moduleCatalog
+    readonly property bool compactPopup: Plasmoid.configuration.popupDensity === "compact"
+    readonly property var sectionStates: SectionState.parse(Plasmoid.configuration.sectionStates)
+    property alias popupMetrics: popupMetricsObject
     readonly property int historyWindowMinutes: [1, 5, 15].indexOf(Number(Plasmoid.configuration.historyWindowMinutes)) >= 0
         ? Number(Plasmoid.configuration.historyWindowMinutes) : 1
     readonly property int historyWindowDuration: historyWindowMinutes * 60000
@@ -115,6 +119,15 @@ PlasmoidItem {
             return "";
         }
         return String(value);
+    }
+
+    // Collapsible popup sections remember the user's choice per page.
+    function sectionExpanded(key) {
+        return SectionState.isExpanded(root.sectionStates, key, root.compactPopup);
+    }
+
+    function setSectionExpanded(key, expanded) {
+        Plasmoid.configuration.sectionStates = SectionState.withState(Plasmoid.configuration.sectionStates, key, expanded);
     }
 
     function setPublicIpLookupEnabled(enabled) {
@@ -197,6 +210,11 @@ PlasmoidItem {
 
     Local.ModuleCatalog {
         id: moduleCatalog
+    }
+
+    Local.PopupMetrics {
+        id: popupMetricsObject
+        compact: root.compactPopup
     }
 
     compactRepresentation: Local.CompactRepresentation {

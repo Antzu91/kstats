@@ -2,6 +2,7 @@ import QtQuick
 import QtTest
 import org.kde.ksysguard.sensors as Sensors
 import "../contents/ui" as Local
+import "../contents/ui/SectionState.js" as SectionState
 
 // Loads the real popup against a root whose sensors, daemons and commands are
 // unavailable (no ksystemstats or session bus in CI). Any script error fails.
@@ -43,6 +44,15 @@ TestCase {
             property alias modules: catalog
             property bool expanded: true
             property bool popupPinned: false
+            property bool compactPopup: false
+            property string sectionStateText: ""
+            property alias popupMetrics: metrics
+            function sectionExpanded(key) {
+                return SectionState.isExpanded(SectionState.parse(sectionStateText), key, compactPopup);
+            }
+            function setSectionExpanded(key, expanded) {
+                sectionStateText = SectionState.withState(sectionStateText, key, expanded);
+            }
             property bool pinAvailable: true
             property var gpuDevices: []
             readonly property bool detailsVisible: expanded
@@ -93,6 +103,7 @@ TestCase {
 
             Local.HistoryStore { id: store }
             Local.ModuleCatalog { id: catalog }
+            Local.PopupMetrics { id: metrics; compact: fakeRoot.compactPopup }
             Local.SensorMonitor { id: cpuUsage; metricId: "cpu"; valueMode: "percent"; sensorId: "cpu/all/usage" }
             Local.SensorMonitor { id: memoryUsage; metricId: "memory"; valueMode: "percent"; sensorId: "memory/physical/usedPercent" }
             Local.SensorMonitor { id: diskUsage; metricId: "disk"; valueMode: "percent"; sensorId: "disk/all/usedPercent" }
@@ -277,5 +288,48 @@ TestCase {
         compare(fixture.root.popupPinned, true);
         fixture.root.pinAvailable = false;
         verify(!pin.visible);
+    }
+
+    function findSectionHeaders(item, found) {
+        if (item.toggleRequested !== undefined && item.expanded !== undefined && item.title !== undefined) {
+            found.push(item);
+        }
+        for (var i = 0; item.children && i < item.children.length; ++i) {
+            findSectionHeaders(item.children[i], found);
+        }
+        return found;
+    }
+
+    function test_compactDensityCollapsesSecondarySections() {
+        var fixture = makePopup({ compactPopup: true });
+        visitEveryPage(fixture);
+        compare(fixture.root.sectionExpanded("ram.details"), false);
+        var headers = findSectionHeaders(fixture.root.popup, []);
+        verify(headers.length >= 6);
+        headers.forEach(function(header) { verify(!header.expanded, header.title); });
+        // Opening one section is remembered; the others keep the density default.
+        fixture.root.selectedTab = 1;
+        wait(50);
+        fixture.root.setSectionExpanded("ram.details", true);
+        compare(fixture.root.sectionStateText, "ram.details=1");
+        compare(fixture.root.sectionExpanded("ram.details"), true);
+        compare(fixture.root.sectionExpanded("net.details"), false);
+    }
+
+    function test_comfortableKeepsSectionsOpenAndHeadersToggle() {
+        var fixture = makePopup();
+        fixture.root.selectedTab = 1;
+        wait(100);
+        var headers = findSectionHeaders(fixture.root.popup, []).filter(function(header) {
+            return header.visible && header.title === "Details";
+        });
+        verify(headers.length >= 1);
+        verify(headers[0].expanded);
+        mouseClick(headers[0]);
+        compare(fixture.root.sectionStateText, "ram.details=0");
+        verify(!headers[0].expanded);
+        headers[0].forceActiveFocus();
+        keyClick(Qt.Key_Space);
+        compare(fixture.root.sectionStateText, "ram.details=1");
     }
 }

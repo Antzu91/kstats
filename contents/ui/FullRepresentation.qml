@@ -15,9 +15,9 @@ Controls.Pane {
     Layout.minimumWidth: Kirigami.Units.gridUnit * 22
     Layout.minimumHeight: Kirigami.Units.gridUnit * 27
     Layout.preferredWidth: Kirigami.Units.gridUnit * 24
-    Layout.preferredHeight: Kirigami.Units.gridUnit * 38
+    Layout.preferredHeight: rootItem.popupMetrics.preferredHeight
 
-    padding: Kirigami.Units.largeSpacing
+    padding: rootItem.popupMetrics.padding
 
     // Moves through tabs in the configured module order, wrapping around.
     function cycleTab(delta) {
@@ -56,7 +56,7 @@ Controls.Pane {
 
     ColumnLayout {
         anchors.fill: parent
-        spacing: Kirigami.Units.largeSpacing
+        spacing: full.rootItem.popupMetrics.headerSpacing
 
         RowLayout {
             Layout.fillWidth: true

@@ -41,6 +41,8 @@ KCM.SimpleKCM {
     property bool cfg_showDisk: true
     property bool cfg_showNetwork: true
     property alias cfg_publicIpLookup: publicIpLookup.checked
+    property string cfg_popupDensity: "comfortable"
+    property string cfg_popupDensityDefault
     property alias cfg_cpuSensorId: cpuSensorId.text
     property alias cfg_memorySensorId: memorySensorId.text
     property alias cfg_diskSensorId: diskSensorId.text
@@ -332,6 +334,19 @@ KCM.SimpleKCM {
                 i18nc("@item:inlistbox history duration", "15 minutes")]
             currentIndex: Math.max(0, [1, 5, 15].indexOf(root.cfg_historyWindowMinutes))
             onActivated: root.cfg_historyWindowMinutes = [1, 5, 15][currentIndex]
+        }
+
+        Controls.ComboBox {
+            Kirigami.FormData.label: i18nc("@label", "Popup density:")
+            model: [i18nc("@item:inlistbox popup density", "Comfortable"),
+                i18nc("@item:inlistbox popup density", "Compact")]
+            currentIndex: root.cfg_popupDensity === "compact" ? 1 : 0
+            onActivated: index => {
+                root.cfg_popupDensity = index === 1 ? "compact" : "comfortable";
+                currentIndex = Qt.binding(() => root.cfg_popupDensity === "compact" ? 1 : 0);
+            }
+            Controls.ToolTip.visible: hovered
+            Controls.ToolTip.text: i18nc("@info:tooltip", "Compact tightens spacing, shortens charts and starts secondary sections collapsed. Sections you open or close stay that way.")
         }
 
         Controls.SpinBox {

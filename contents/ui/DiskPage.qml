@@ -18,6 +18,8 @@ Item {
             metric: "disk"
             // Four rows leave room for the capacity summary within the popup height.
             limit: 4
+            expanded: page.rootItem.sectionExpanded("disk.apps")
+            onExpandToggleRequested: page.rootItem.setSectionExpanded("disk.apps", !expanded)
             rowHeight: Kirigami.Units.gridUnit * 1.88
             refreshInterval: Math.max(3000, page.rootItem.sensorUpdateRate * 3)
         }
