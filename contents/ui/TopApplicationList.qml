@@ -133,9 +133,11 @@ ColumnLayout {
                 valueText = formatRate(download);
                 subtitle = i18nc("@label network upload rate", "Upload %1", formatRate(upload));
             } else if (metric === "disk") {
+                // Cached reads rarely reach storage, so lead with combined I/O.
                 metricValue = read + write;
-                valueText = formatRate(read);
-                subtitle = i18nc("@label disk write rate", "Write %1", formatRate(write));
+                valueText = formatRate(read + write);
+                subtitle = i18nc("@label application disk read and write rates", "Read %1 · Write %2",
+                    formatRate(read), formatRate(write));
             }
 
             maximum = Math.max(maximum, metricValue);

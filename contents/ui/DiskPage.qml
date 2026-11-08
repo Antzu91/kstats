@@ -34,6 +34,11 @@ Item {
     property int refreshGeneration: 0
     readonly property real sectionSpacing: Kirigami.Units.smallSpacing * 1.15
     readonly property real switchHeight: Kirigami.Units.gridUnit * 2.1
+    readonly property real activityHeight: Kirigami.Units.gridUnit * 5.2
+    readonly property var readMonitor: rootItem.diskReadMonitor
+    readonly property var writeMonitor: rootItem.diskWriteMonitor
+    readonly property bool activityConfigured: readMonitor.status !== "disabled" || writeMonitor.status !== "disabled"
+    readonly property string defaultReadSensorId: "disk/all/read"
     readonly property real diskRowHeight: Kirigami.Units.gridUnit * 3.95
 
     clip: true
@@ -393,9 +398,94 @@ Item {
         sourceComponent: page.commandComponent
     }
 
+    component ActivityValue: RowLayout {
+        property string label: ""
+        property string value: ""
+        property color markerColor: Kirigami.Theme.focusColor
+
+        spacing: Kirigami.Units.smallSpacing / 2
+
+        Rectangle {
+            Layout.preferredWidth: 8
+            Layout.preferredHeight: 8
+            radius: 2
+            color: markerColor
+        }
+
+        Controls.Label {
+            text: label
+            color: Kirigami.Theme.disabledTextColor
+            font.pixelSize: Kirigami.Theme.smallFont.pixelSize
+        }
+
+        Controls.Label {
+            text: value
+            font.weight: Font.DemiBold
+        }
+    }
+
     Column {
         anchors.fill: parent
         spacing: page.sectionSpacing
+
+        // Configured aggregate sensors, collected in the background while the
+        // disk module is shown, so short read bursts remain visible as history.
+        Rectangle {
+            visible: page.activityConfigured
+            width: parent.width
+            height: page.activityHeight
+            radius: Kirigami.Units.cornerRadius
+            color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.04)
+            border.width: 1
+            border.color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08)
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: Kirigami.Units.smallSpacing
+                spacing: Kirigami.Units.smallSpacing / 2
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Kirigami.Units.largeSpacing
+
+                    ActivityValue {
+                        label: i18nc("@label disk read rate", "Read")
+                        value: page.readMonitor.text
+                        markerColor: Kirigami.Theme.focusColor
+                    }
+
+                    ActivityValue {
+                        label: i18nc("@label disk write rate", "Write")
+                        value: page.writeMonitor.text
+                        markerColor: Kirigami.Theme.negativeTextColor
+                    }
+
+                    Controls.Label {
+                        text: page.readMonitor.sensorId === page.defaultReadSensorId
+                            ? i18nc("@label disk activity scope and retained history", "All disks · %1",
+                                page.rootItem.historyCoverageText(page.rootItem.diskWriteSamples))
+                            : page.readMonitor.sensorId
+                        color: Kirigami.Theme.disabledTextColor
+                        font.pixelSize: Kirigami.Theme.smallFont.pixelSize
+                        horizontalAlignment: Text.AlignRight
+                        elide: Text.ElideMiddle
+                        Layout.fillWidth: true
+                    }
+                }
+
+                // Reads are drawn above the baseline and writes below it.
+                Local.NetworkHistoryChart {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    uploadSamples: page.rootItem.diskReadSamples
+                    downloadSamples: page.rootItem.diskWriteSamples
+                    windowDuration: page.rootItem.historyWindowDuration
+                    now: page.rootItem.historyNow
+                    uploadColor: Kirigami.Theme.focusColor
+                    downloadColor: Kirigami.Theme.negativeTextColor
+                }
+            }
+        }
 
         Rectangle {
             width: parent.width

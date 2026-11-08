@@ -51,6 +51,8 @@ TestCase {
             property alias cpuUsageMonitor: cpuUsage
             property alias memoryUsageMonitor: memoryUsage
             property alias diskUsageMonitor: diskUsage
+            property alias diskReadMonitor: diskRead
+            property alias diskWriteMonitor: diskWrite
             property alias networkDownloadMonitor: networkDownload
             property alias networkUploadMonitor: networkUpload
             property alias cpuDetailHistory: cpuDetails
@@ -63,6 +65,8 @@ TestCase {
             readonly property var gpuUsageSamples: []
             readonly property var networkUploadSamples: []
             readonly property var networkDownloadSamples: []
+            readonly property var diskReadSamples: []
+            readonly property var diskWriteSamples: []
 
             function sensorText(sensor) {
                 return sensor && sensor.status === Sensors.Sensor.Ready ? sensor.formattedValue : "N/A";
@@ -79,6 +83,8 @@ TestCase {
             Local.SensorMonitor { id: cpuUsage; metricId: "cpu"; valueMode: "percent"; sensorId: "cpu/all/usage" }
             Local.SensorMonitor { id: memoryUsage; metricId: "memory"; valueMode: "percent"; sensorId: "memory/physical/usedPercent" }
             Local.SensorMonitor { id: diskUsage; metricId: "disk"; valueMode: "percent"; sensorId: "disk/all/usedPercent" }
+            Local.SensorMonitor { id: diskRead; metricId: "diskRead"; valueMode: "bytesPerSecond"; sensorId: "disk/all/read" }
+            Local.SensorMonitor { id: diskWrite; metricId: "diskWrite"; valueMode: "bytesPerSecond"; sensorId: "disk/all/write" }
             Local.SensorMonitor { id: networkDownload; metricId: "networkDownload"; valueMode: "bytesPerSecond"; sensorId: "network/all/download" }
             Local.SensorMonitor { id: networkUpload; metricId: "networkUpload"; valueMode: "bytesPerSecond"; sensorId: "network/all/upload" }
             Sensors.Sensor { id: cpuCount; sensorId: "cpu/all/cpuCount" }

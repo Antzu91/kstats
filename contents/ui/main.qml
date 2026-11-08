@@ -52,6 +52,8 @@ PlasmoidItem {
     readonly property var gpuUsageSamples: historyStore.samplesFor(gpuUsageMonitor.metricId, gpuUsageMonitor.sourceKey)
     readonly property var networkUploadSamples: uploadHistory.samples
     readonly property var networkDownloadSamples: downloadHistory.samples
+    readonly property var diskReadSamples: diskReadHistory.samples
+    readonly property var diskWriteSamples: diskWriteHistory.samples
 
     Plasmoid.backgroundHints: PlasmaCore.Types.DefaultBackground | PlasmaCore.Types.ConfigurableBackground
     Plasmoid.title: i18n("KStats")
@@ -127,6 +129,8 @@ PlasmoidItem {
         diskHistory.sample(timestamp);
         uploadHistory.sample(timestamp);
         downloadHistory.sample(timestamp);
+        diskReadHistory.sample(timestamp);
+        diskWriteHistory.sample(timestamp);
         gpuPool.sample(timestamp);
     }
 
@@ -302,6 +306,8 @@ PlasmoidItem {
     Local.HistorySampler { id: diskHistory; monitor: diskUsage; store: historyStore }
     Local.HistorySampler { id: uploadHistory; monitor: networkUpload; store: historyStore; usePercent: false }
     Local.HistorySampler { id: downloadHistory; monitor: networkDownload; store: historyStore; usePercent: false }
+    Local.HistorySampler { id: diskReadHistory; monitor: diskRead; store: historyStore; usePercent: false }
+    Local.HistorySampler { id: diskWriteHistory; monitor: diskWrite; store: historyStore; usePercent: false }
 
     Timer {
         interval: root.sensorUpdateRate
