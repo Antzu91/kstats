@@ -26,22 +26,10 @@ Controls.Pane {
             Layout.fillWidth: true
             spacing: Kirigami.Units.smallSpacing
 
-            ColumnLayout {
-                spacing: 0
+            Controls.Label {
+                text: i18n("KStats")
+                font.weight: Font.DemiBold
                 Layout.fillWidth: true
-
-                Controls.Label {
-                    text: i18n("KStats")
-                    font.weight: Font.DemiBold
-                    Layout.fillWidth: true
-                }
-
-                Controls.Label {
-                    text: i18nc("@label", "Live system stats")
-                    color: Kirigami.Theme.disabledTextColor
-                    font.pixelSize: Kirigami.Theme.smallFont.pixelSize
-                    Layout.fillWidth: true
-                }
             }
 
             Controls.ComboBox {

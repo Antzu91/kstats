@@ -22,7 +22,7 @@ Item {
     Layout.fillHeight: true
 
     function cpuModelText() {
-        return page.cpuModel.length > 0 ? page.cpuModel : i18nc("@info:status", "N/A");
+        return page.cpuModel.length > 0 ? page.cpuModel : i18nc("@label fallback CPU title", "Processor");
     }
 
     function optionalSensorText(sensor, sensorId) {
@@ -335,28 +335,12 @@ Item {
                     Layout.fillWidth: true
                     spacing: Kirigami.Units.smallSpacing / 2
 
-                    RowLayout {
+                    // The ring already carries the usage reading; the title names the hardware.
+                    Controls.Label {
+                        text: page.cpuModelText()
+                        font.weight: Font.DemiBold
+                        elide: Text.ElideRight
                         Layout.fillWidth: true
-
-                        Controls.Label {
-                            text: i18nc("@label", "CPU Usage")
-                            font.weight: Font.DemiBold
-                            Layout.fillWidth: true
-                        }
-
-                        Controls.Label {
-                            text: page.rootItem.cpuUsageMonitor.text
-                            color: Kirigami.Theme.positiveTextColor
-                            font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 1.2
-                            font.weight: Font.DemiBold
-                        }
-                    }
-
-                    CpuSummaryRow {
-                        label: i18nc("@label", "Model")
-                        value: page.cpuModelText()
-                        showMarker: false
-                        valueMaximumWidth: Kirigami.Units.gridUnit * 13
                     }
 
                     CpuSummaryRow {

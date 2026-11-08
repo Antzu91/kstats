@@ -12,21 +12,13 @@ Item {
     readonly property bool active: rootItem.memoryDetailsVisible
     property int generation: 0
     property bool inFlight: false
-    property var memoryInfo: ({
-        valid: false,
-        usedPercent: 0,
-        swapPercent: 0,
-        totalText: i18nc("@info:status", "N/A"),
-        usedText: i18nc("@info:status", "N/A"),
-        availableText: i18nc("@info:status", "N/A"),
-        appText: i18nc("@info:status", "N/A"),
-        cacheText: i18nc("@info:status", "N/A"),
-        kernelText: i18nc("@info:status", "N/A"),
-        compressedText: i18nc("@info:status", "N/A"),
-        swapText: i18nc("@info:status", "N/A")
-    })
-    property var displayPercent: memoryInfo.valid ? memoryInfo.usedPercent : rootItem.memoryUsageMonitor.percent
-    readonly property bool dataAvailable: displayPercent !== null
+    property var memoryInfo: unavailableMemoryInfo()
+    // The gauge shows the panel's configured reading. /proc/meminfo only supplies
+    // byte details; its used value (MemTotal - MemAvailable) matches the default
+    // memory/physical/usedPercent definition, so name any custom gauge source.
+    readonly property string defaultSensorId: "memory/physical/usedPercent"
+    readonly property string gaugeSensorId: rootItem.memoryUsageMonitor.sensorId
+    readonly property bool customGaugeSensor: gaugeSensorId.length > 0 && gaugeSensorId !== defaultSensorId
 
     clip: true
     Layout.fillWidth: true
@@ -34,6 +26,21 @@ Item {
 
     function value(values, key) {
         return key in values ? values[key] : 0;
+    }
+
+    function unavailableMemoryInfo() {
+        var missing = i18nc("@info:status", "N/A");
+        return {
+            valid: false,
+            totalText: missing,
+            usedText: missing,
+            availableText: missing,
+            appText: missing,
+            cacheText: missing,
+            kernelText: missing,
+            compressedText: missing,
+            swapText: missing
+        };
     }
 
     function formatKiB(kib) {
@@ -61,19 +68,7 @@ Item {
                 return;
             }
             if (result.exitCode !== 0) {
-                page.memoryInfo = {
-                    valid: false,
-                    usedPercent: page.rootItem.memoryUsageMonitor.percent,
-                    swapPercent: 0,
-                    totalText: i18nc("@info:status", "N/A"),
-                    usedText: i18nc("@info:status", "N/A"),
-                    availableText: i18nc("@info:status", "N/A"),
-                    appText: i18nc("@info:status", "N/A"),
-                    cacheText: i18nc("@info:status", "N/A"),
-                    kernelText: i18nc("@info:status", "N/A"),
-                    compressedText: i18nc("@info:status", "N/A"),
-                    swapText: i18nc("@info:status", "N/A")
-                };
+                page.memoryInfo = page.unavailableMemoryInfo();
                 return;
             }
 
@@ -119,14 +114,14 @@ Item {
             var swapTotal = page.value(values, "SwapTotal");
             var swapFree = page.value(values, "SwapFree");
             var swapUsed = Math.max(0, swapTotal - swapFree);
-            var percent = total > 0 ? used / total * 100 : page.rootItem.memoryUsageMonitor.percent;
-            var swapPercent = swapTotal > 0 ? swapUsed / swapTotal * 100 : 0;
+            if (total <= 0) {
+                page.memoryInfo = page.unavailableMemoryInfo();
+                return;
+            }
 
             page.memoryInfo = {
-                valid: total > 0,
-                usedPercent: Math.max(0, Math.min(100, percent)),
-                swapPercent: Math.max(0, Math.min(100, swapPercent)),
-                totalText: total > 0 ? page.formatKiB(total) : i18nc("@info:status", "N/A"),
+                valid: true,
+                totalText: page.formatKiB(total),
                 usedText: page.formatKiB(used),
                 availableText: page.formatKiB(available),
                 appText: page.formatKiB(app),
@@ -200,7 +195,7 @@ Item {
 
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: Kirigami.Units.gridUnit * 4.4
+            Layout.preferredHeight: Math.max(Kirigami.Units.gridUnit * 4.4, ramSummaryContent.implicitHeight + Kirigami.Units.smallSpacing * 2)
             clip: true
             radius: Kirigami.Units.cornerRadius
             color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.04)
@@ -208,6 +203,8 @@ Item {
             border.color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08)
 
             RowLayout {
+                id: ramSummaryContent
+
                 anchors.fill: parent
                 anchors.margins: Kirigami.Units.smallSpacing
                 spacing: Kirigami.Units.largeSpacing
@@ -215,8 +212,8 @@ Item {
                 Local.RingGauge {
                     Layout.preferredWidth: Kirigami.Units.gridUnit * 3.6
                     Layout.preferredHeight: Kirigami.Units.gridUnit * 3.6
-                    value: page.displayPercent ?? 0
-                    dataAvailable: page.dataAvailable
+                    value: page.rootItem.memoryUsageMonitor.percent ?? 0
+                    dataAvailable: page.rootItem.memoryUsageMonitor.available
                     label: i18nc("@label", "RAM")
                     accentColor: Kirigami.Theme.focusColor
                 }
@@ -225,35 +222,34 @@ Item {
                     Layout.fillWidth: true
                     spacing: Kirigami.Units.smallSpacing / 2
 
-                    RowLayout {
+                    Controls.Label {
+                        text: page.memoryInfo.valid
+                            ? i18nc("@label used memory of total memory", "%1 of %2 used", page.memoryInfo.usedText, page.memoryInfo.totalText)
+                            : i18nc("@label", "Memory")
+                        font.weight: Font.DemiBold
+                        elide: Text.ElideRight
                         Layout.fillWidth: true
-
-                        Controls.Label {
-                            text: i18nc("@label", "RAM Usage")
-                            font.weight: Font.DemiBold
-                            Layout.fillWidth: true
-                        }
-
-                        Controls.Label {
-                            text: page.dataAvailable
-                                ? i18nc("@label percent value", "%1%", page.displayPercent.toFixed(1))
-                                : page.rootItem.memoryUsageMonitor.text
-                            color: Kirigami.Theme.focusColor
-                            font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 1.2
-                            font.weight: Font.DemiBold
-                        }
                     }
 
                     MemoryDetailRow {
-                        label: i18nc("@label", "Total")
-                        value: page.memoryInfo.totalText
-                        showMarker: false
+                        label: i18nc("@label", "Available")
+                        value: page.memoryInfo.availableText
+                        markerColor: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.25)
                     }
 
                     MemoryDetailRow {
-                        label: i18nc("@label", "Used")
-                        value: page.memoryInfo.usedText
-                        markerColor: Kirigami.Theme.focusColor
+                        label: i18nc("@label", "Swap")
+                        value: page.memoryInfo.swapText
+                        markerColor: Kirigami.Theme.neutralTextColor
+                    }
+
+                    Controls.Label {
+                        visible: page.customGaugeSensor
+                        text: i18nc("@label sensor shown by the memory gauge", "Gauge: %1", page.gaugeSensorId)
+                        color: Kirigami.Theme.disabledTextColor
+                        font.pixelSize: Math.max(9, Kirigami.Theme.smallFont.pixelSize - 1)
+                        elide: Text.ElideMiddle
+                        Layout.fillWidth: true
                     }
 
                     Item {
@@ -300,7 +296,7 @@ Item {
 
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: Kirigami.Units.gridUnit * 5.8
+            Layout.preferredHeight: memoryDetailsContent.implicitHeight + Kirigami.Units.smallSpacing * 2
             clip: true
             radius: Kirigami.Units.cornerRadius
             color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.04)
@@ -308,6 +304,8 @@ Item {
             border.color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08)
 
             ColumnLayout {
+                id: memoryDetailsContent
+
                 anchors.fill: parent
                 anchors.margins: Kirigami.Units.smallSpacing
                 spacing: Kirigami.Units.smallSpacing / 2
@@ -328,33 +326,15 @@ Item {
                     rowSpacing: Kirigami.Units.smallSpacing / 2
 
                     MemoryDetailRow {
-                        label: i18nc("@label", "Total")
-                        value: page.memoryInfo.totalText
-                        showMarker: false
-                    }
-
-                    MemoryDetailRow {
-                        label: i18nc("@label", "Available")
-                        value: page.memoryInfo.availableText
-                        markerColor: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.25)
-                    }
-
-                    MemoryDetailRow {
-                        label: i18nc("@label", "Used")
-                        value: page.memoryInfo.usedText
-                        markerColor: Kirigami.Theme.focusColor
+                        label: i18nc("@label", "App")
+                        value: page.memoryInfo.appText
+                        markerColor: Kirigami.Theme.positiveTextColor
                     }
 
                     MemoryDetailRow {
                         label: i18nc("@label", "Page Cache")
                         value: page.memoryInfo.cacheText
                         markerColor: Kirigami.Theme.visitedLinkColor
-                    }
-
-                    MemoryDetailRow {
-                        label: i18nc("@label", "App")
-                        value: page.memoryInfo.appText
-                        markerColor: Kirigami.Theme.positiveTextColor
                     }
 
                     MemoryDetailRow {
@@ -367,12 +347,6 @@ Item {
                         label: i18nc("@label", "Compressed")
                         value: page.memoryInfo.compressedText
                         markerColor: Kirigami.Theme.negativeTextColor
-                    }
-
-                    MemoryDetailRow {
-                        label: i18nc("@label", "Swap")
-                        value: page.memoryInfo.swapText
-                        markerColor: Kirigami.Theme.neutralTextColor
                     }
                 }
             }

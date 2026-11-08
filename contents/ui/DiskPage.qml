@@ -33,7 +33,6 @@ Item {
     property bool refreshInFlight: false
     property int refreshGeneration: 0
     readonly property real sectionSpacing: Kirigami.Units.smallSpacing * 1.15
-    readonly property real headerHeight: Kirigami.Units.gridUnit * 1.55
     readonly property real switchHeight: Kirigami.Units.gridUnit * 2.1
     readonly property real diskRowHeight: Kirigami.Units.gridUnit * 3.95
 
@@ -205,9 +204,7 @@ Item {
                 total: isFinite(total) ? total : 0,
                 used: isFinite(used) ? used : 0,
                 available: isFinite(available) ? available : 0,
-                percent: isFinite(percent) ? Math.max(0, Math.min(100, percent)) : 0,
-                readRate: 0,
-                writeRate: 0
+                percent: isFinite(percent) ? Math.max(0, Math.min(100, percent)) : 0
             });
 
             if (source in seenSources) {
@@ -268,14 +265,6 @@ Item {
                     disk.writeRate = Math.max(0, (diskStats.writeBytes - previous.writeBytes) / elapsed);
                 }
                 nextPrevious[disk.name] = diskStats;
-            }
-        }
-
-        for (var mountIndex = 0; mountIndex < layout.mountRows.length; mountIndex++) {
-            var mount = layout.mountRows[mountIndex];
-            if (mount.diskName in layout.diskByName) {
-                mount.readRate = layout.diskByName[mount.diskName].readRate;
-                mount.writeRate = layout.diskByName[mount.diskName].writeRate;
             }
         }
 
@@ -407,24 +396,6 @@ Item {
     Column {
         anchors.fill: parent
         spacing: page.sectionSpacing
-
-        RowLayout {
-            width: parent.width
-            height: page.headerHeight
-            spacing: Kirigami.Units.smallSpacing
-
-            Controls.Label {
-                text: page.currentView === 0 ? i18nc("@label", "Physical Disks") : i18nc("@label", "Mount Points")
-                font.weight: Font.DemiBold
-                Layout.fillWidth: true
-            }
-
-            Controls.Label {
-                text: i18nc("@label", "R/W per disk")
-                color: Kirigami.Theme.disabledTextColor
-                font.pixelSize: Kirigami.Theme.smallFont.pixelSize
-            }
-        }
 
         Rectangle {
             width: parent.width
@@ -632,54 +603,10 @@ Item {
                             }
                         }
 
-                        RowLayout {
-                            spacing: Kirigami.Units.smallSpacing / 2
-
-                            Controls.Label {
-                                text: i18nc("@label disk read indicator", "R")
-                                color: Kirigami.Theme.disabledTextColor
-                                font.pixelSize: Kirigami.Theme.smallFont.pixelSize
-                            }
-
-                            Rectangle {
-                                Layout.preferredWidth: 8
-                                Layout.preferredHeight: 8
-                                radius: 2
-                                color: Kirigami.Theme.focusColor
-                            }
-
-                            Controls.Label {
-                                text: page.formatRate(modelData.readRate)
-                                font.weight: Font.DemiBold
-                                font.pixelSize: Kirigami.Theme.smallFont.pixelSize
-                                Layout.preferredWidth: Kirigami.Units.gridUnit * 4.3
-                                horizontalAlignment: Text.AlignRight
-                            }
-                        }
-
-                        RowLayout {
-                            spacing: Kirigami.Units.smallSpacing / 2
-
-                            Controls.Label {
-                                text: i18nc("@label disk write indicator", "W")
-                                color: Kirigami.Theme.disabledTextColor
-                                font.pixelSize: Kirigami.Theme.smallFont.pixelSize
-                            }
-
-                            Rectangle {
-                                Layout.preferredWidth: 8
-                                Layout.preferredHeight: 8
-                                radius: 2
-                                color: Kirigami.Theme.negativeTextColor
-                            }
-
-                            Controls.Label {
-                                text: page.formatRate(modelData.writeRate)
-                                font.weight: Font.DemiBold
-                                font.pixelSize: Kirigami.Theme.smallFont.pixelSize
-                                Layout.preferredWidth: Kirigami.Units.gridUnit * 4.3
-                                horizontalAlignment: Text.AlignRight
-                            }
+                        Controls.Label {
+                            text: i18nc("@label free filesystem space", "%1 free", page.formatBytes(modelData.available))
+                            color: Kirigami.Theme.disabledTextColor
+                            font.pixelSize: Kirigami.Theme.smallFont.pixelSize
                         }
                     }
 

@@ -78,9 +78,9 @@ Item {
                             iconName: "video-display"
                             primaryValue: gpuCard.usage ? gpuCard.usage.text : i18nc("@info:status", "N/A")
                             showSparkline: gpuCard.usage !== null && gpuCard.usage.available
-                            showProgress: gpuCard.usage !== null && gpuCard.usage.available
-                            secondaryValue: i18nc("@label", "Graphics processor usage")
-                            sensorId: gpuCard.modelData.usageSensorId
+                            showProgress: false
+                            // The raw ID only helps diagnose a missing reading.
+                            sensorId: gpuCard.usage !== null && gpuCard.usage.available ? "" : gpuCard.modelData.usageSensorId
                             percent: gpuCard.usage ? (gpuCard.usage.percent ?? 0) : 0
                             samples: gpuCard.usage ? page.rootItem.histories.samplesFor(gpuCard.usage.metricId, gpuCard.usage.sourceKey) : []
                             windowDuration: page.rootItem.historyWindowDuration
@@ -94,9 +94,9 @@ Item {
                             iconName: "memory"
                             primaryValue: gpuCard.memory ? gpuCard.memory.text : i18nc("@info:status", "N/A")
                             showSparkline: gpuCard.memory !== null && gpuCard.memory.available
-                            showProgress: gpuCard.memory !== null && gpuCard.memory.available
-                            secondaryValue: i18nc("@label", "Graphics memory used")
-                            sensorId: gpuCard.modelData.memorySensorId
+                            showProgress: false
+                            // The raw ID only helps diagnose a missing reading.
+                            sensorId: gpuCard.memory !== null && gpuCard.memory.available ? "" : gpuCard.modelData.memorySensorId
                             percent: gpuCard.memory ? (gpuCard.memory.percent ?? 0) : 0
                             samples: gpuCard.memory ? page.rootItem.histories.samplesFor(gpuCard.memory.metricId, gpuCard.memory.sourceKey) : []
                             windowDuration: page.rootItem.historyWindowDuration
@@ -110,9 +110,9 @@ Item {
                             iconName: "temperature-normal"
                             primaryValue: gpuCard.temperature ? gpuCard.temperature.text : i18nc("@info:status", "N/A")
                             showSparkline: gpuCard.temperature !== null && gpuCard.temperature.available
-                            showProgress: gpuCard.temperature !== null && gpuCard.temperature.available
-                            secondaryValue: i18nc("@label", "Graphics processor temperature")
-                            sensorId: gpuCard.modelData.temperatureSensorId
+                            showProgress: false
+                            // The raw ID only helps diagnose a missing reading.
+                            sensorId: gpuCard.temperature !== null && gpuCard.temperature.available ? "" : gpuCard.modelData.temperatureSensorId
                             percent: gpuCard.temperature ? (gpuCard.temperature.percent ?? 0) : 0
                             samples: gpuCard.temperature ? page.rootItem.histories.samplesFor(gpuCard.temperature.metricId, gpuCard.temperature.sourceKey) : []
                             windowDuration: page.rootItem.historyWindowDuration
