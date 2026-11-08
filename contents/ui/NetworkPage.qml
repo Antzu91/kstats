@@ -22,7 +22,47 @@ Item {
     property bool detailsInFlight: false
     property string localIp: ""
     property string physicalAddress: ""
-    property string publicIp: i18nc("@info:status", "N/A")
+    readonly property var publicIp: rootItem.publicIp
+    readonly property string publicIpText: {
+        switch (publicIp.status) {
+        case "loading":
+            return publicIp.address.length > 0 ? publicIp.address : i18nc("@info:status", "Checking…");
+        case "failed":
+            return publicIp.address.length > 0 ? publicIp.address : i18nc("@info:status", "Lookup failed");
+        case "idle":
+            return i18nc("@info:status public IP not looked up yet", "Not checked");
+        default:
+            return publicIp.address;
+        }
+    }
+    // A previous address is shown dimmed while it may no longer be current.
+    readonly property bool publicIpDimmed: publicIp.status === "loading" || publicIp.status === "failed"
+        || publicIp.status === "invalidated"
+    readonly property string publicIpDetail: {
+        var checked = publicIp.checkedAt !== null
+            ? Qt.formatTime(new Date(publicIp.checkedAt), Locale.ShortFormat) : "";
+        var reasons = {
+            timeout: i18nc("@info:tooltip public IP failure", "the request timed out"),
+            network: i18nc("@info:tooltip public IP failure", "the service could not be reached"),
+            http: i18nc("@info:tooltip public IP failure", "the service returned an error"),
+            payload: i18nc("@info:tooltip public IP failure", "the response was not understood"),
+            format: i18nc("@info:tooltip public IP failure", "the response was not understood")
+        };
+        switch (publicIp.status) {
+        case "ok":
+            return i18nc("@info:tooltip", "Public IP via current connection, checked at %1", checked);
+        case "loading":
+            return i18nc("@info:tooltip", "Checking the public IP via current connection…");
+        case "failed":
+            return checked.length > 0
+                ? i18nc("@info:tooltip", "Lookup failed: %1. Showing the result from %2.", reasons[publicIp.error] || reasons.network, checked)
+                : i18nc("@info:tooltip", "Lookup failed: %1.", reasons[publicIp.error] || reasons.network);
+        case "invalidated":
+            return i18nc("@info:tooltip", "The connection changed since %1. Refresh to check again.", checked);
+        default:
+            return i18nc("@info:tooltip", "Press Refresh to look up the public IP via api64.ipify.org.");
+        }
+    }
     readonly property string networkName: {
         if (networkNameSensor.status === Sensors.Sensor.Ready && typeof networkNameSensor.value === "string"
                 && networkNameSensor.value.trim().length > 0) {
@@ -127,6 +167,12 @@ Item {
         id: macCommand
         readonly property var provider: item
         sourceComponent: page.commandComponent
+    }
+
+    // QML has no clipboard API; a hidden editor provides copy().
+    TextEdit {
+        id: clipboardHelper
+        visible: false
     }
 
     Sensors.Sensor {
@@ -320,9 +366,79 @@ Item {
                     value: page.orMissing(page.physicalAddress)
                 }
 
-                NetworkDetailRow {
-                    label: i18nc("@label", "Public IP")
-                    value: page.publicIp
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Kirigami.Units.smallSpacing
+
+                    Controls.Label {
+                        text: i18nc("@label", "Public IP")
+                        color: Kirigami.Theme.disabledTextColor
+                        font.pixelSize: Kirigami.Theme.smallFont.pixelSize
+                        elide: Text.ElideRight
+                        Layout.fillWidth: true
+                    }
+
+                    // Opt-in: nothing is requested until this is pressed or enabled in settings.
+                    Controls.ToolButton {
+                        visible: page.publicIp.status === "disabled"
+                        text: i18nc("@action:button", "Look up via ipify.org")
+                        font.pixelSize: Kirigami.Theme.smallFont.pixelSize
+                        Layout.preferredHeight: Kirigami.Units.gridUnit * 1.1
+                        onClicked: page.rootItem.setPublicIpLookupEnabled(true)
+                        Controls.ToolTip.visible: hovered
+                        Controls.ToolTip.text: i18nc("@info:tooltip", "Sends a request to api64.ipify.org, which sees your public IP address. You can turn this off in the widget settings.")
+                    }
+
+                    Controls.Label {
+                        visible: page.publicIp.status !== "disabled"
+                        text: page.publicIpText
+                        opacity: page.publicIpDimmed ? 0.6 : 1
+                        horizontalAlignment: Text.AlignRight
+                        font.weight: Font.DemiBold
+                        font.pixelSize: Kirigami.Theme.smallFont.pixelSize
+                        elide: Text.ElideMiddle
+                        Layout.maximumWidth: Kirigami.Units.gridUnit * 9
+
+                        HoverHandler {
+                            id: publicIpHover
+                        }
+
+                        Controls.ToolTip.visible: publicIpHover.hovered
+                        Controls.ToolTip.text: page.publicIpDetail
+                    }
+
+                    Controls.ToolButton {
+                        visible: page.publicIp.address.length > 0 && page.publicIp.status !== "disabled"
+                        icon.name: "edit-copy"
+                        icon.width: Kirigami.Units.iconSizes.small
+                        icon.height: Kirigami.Units.iconSizes.small
+                        display: Controls.AbstractButton.IconOnly
+                        text: i18nc("@action:button", "Copy public IP")
+                        Layout.preferredHeight: Kirigami.Units.gridUnit * 1.1
+                        Layout.preferredWidth: Kirigami.Units.gridUnit * 1.1
+                        onClicked: {
+                            clipboardHelper.text = page.publicIp.address;
+                            clipboardHelper.selectAll();
+                            clipboardHelper.copy();
+                        }
+                        Controls.ToolTip.visible: hovered
+                        Controls.ToolTip.text: text
+                    }
+
+                    Controls.ToolButton {
+                        visible: page.publicIp.status !== "disabled"
+                        enabled: !page.publicIp.loading
+                        icon.name: "view-refresh"
+                        icon.width: Kirigami.Units.iconSizes.small
+                        icon.height: Kirigami.Units.iconSizes.small
+                        display: Controls.AbstractButton.IconOnly
+                        text: i18nc("@action:button", "Refresh public IP")
+                        Layout.preferredHeight: Kirigami.Units.gridUnit * 1.1
+                        Layout.preferredWidth: Kirigami.Units.gridUnit * 1.1
+                        onClicked: page.publicIp.refresh()
+                        Controls.ToolTip.visible: hovered
+                        Controls.ToolTip.text: text
+                    }
                 }
             }
         }

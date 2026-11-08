@@ -29,6 +29,7 @@ PlasmoidItem {
     readonly property var networkUploadSensor: networkUpload.sensor
     property alias networkUploadMonitor: networkUpload
     property alias networkModel: networkScope
+    property alias publicIp: publicIpLookup
     readonly property var gpuDevices: gpuDiscovery.devices
     readonly property string gpuDeviceId: root.configString(Plasmoid.configuration.gpuDeviceId)
     readonly property var selectedGpu: gpuDevices.find(function(device) {
@@ -102,6 +103,10 @@ PlasmoidItem {
             return "";
         }
         return String(value);
+    }
+
+    function setPublicIpLookupEnabled(enabled) {
+        Plasmoid.configuration.publicIpLookup = enabled === true;
     }
 
     function setHistoryWindowMinutes(minutes) {
@@ -288,6 +293,15 @@ PlasmoidItem {
         customUploadSensorId: root.configString(Plasmoid.configuration.networkUploadSensorId)
         active: Plasmoid.configuration.showNetwork || root.networkDetailsVisible
         detailsDemand: root.networkDetailsVisible
+    }
+
+    // Opt-in; requests only when the Network page opens or on refresh. The
+    // result lives here so reopening the popup can show it while refreshing.
+    Local.PublicIpLookup {
+        id: publicIpLookup
+        lookupEnabled: Plasmoid.configuration.publicIpLookup === true
+        demand: root.networkDetailsVisible
+        routeKey: networkScope.routeInterface
     }
 
     Local.SensorMonitor {

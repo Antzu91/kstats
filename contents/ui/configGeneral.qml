@@ -21,6 +21,7 @@ KCM.SimpleKCM {
     property string cfg_networkSource: "all"
     property alias cfg_showDisk: showDisk.checked
     property alias cfg_showNetwork: showNetwork.checked
+    property alias cfg_publicIpLookup: publicIpLookup.checked
     property alias cfg_cpuSensorId: cpuSensorId.text
     property alias cfg_memorySensorId: memorySensorId.text
     property alias cfg_diskSensorId: diskSensorId.text
@@ -40,6 +41,7 @@ KCM.SimpleKCM {
     property string cfg_networkSourceDefault
     property bool cfg_showDiskDefault
     property bool cfg_showNetworkDefault
+    property bool cfg_publicIpLookupDefault
     property string cfg_cpuSensorIdDefault
     property string cfg_memorySensorIdDefault
     property string cfg_diskSensorIdDefault
@@ -227,6 +229,21 @@ KCM.SimpleKCM {
                     return i18nc("@info", "Combined traffic of every interface. Virtual and VPN interfaces can count the same traffic more than once.");
                 }
             }
+        }
+
+        Controls.CheckBox {
+            id: publicIpLookup
+            Kirigami.FormData.label: i18nc("@label", "Public IP:")
+            text: i18nc("@option:check", "Look up when the Network page opens")
+        }
+
+        Controls.Label {
+            Layout.fillWidth: true
+            Layout.maximumWidth: Kirigami.Units.gridUnit * 22
+            wrapMode: Text.Wrap
+            font: Kirigami.Theme.smallFont
+            color: Kirigami.Theme.disabledTextColor
+            text: i18nc("@info", "Sends a request to api64.ipify.org, which sees your public IP address. Only when the Network page opens or you press Refresh; never in the background.")
         }
 
         Kirigami.Separator {

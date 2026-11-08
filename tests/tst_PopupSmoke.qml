@@ -56,6 +56,9 @@ TestCase {
             property alias networkDownloadMonitor: networkDownload
             property alias networkUploadMonitor: networkUpload
             property alias networkModel: networkScope
+            property alias publicIp: publicIpLookup
+            property bool publicIpLookupEnabled: false
+            function setPublicIpLookupEnabled(enabled) { publicIpLookupEnabled = enabled; }
             property alias cpuDetailHistory: cpuDetails
             property alias cpuCountSensor: cpuCount
             property alias cpuCoreCountSensor: cpuCoreCount
@@ -92,6 +95,15 @@ TestCase {
                 source: "auto"
                 active: true
                 detailsDemand: fakeRoot.networkDetailsVisible
+            }
+            // Enabled in one test; the request fails offline in CI or is aborted on close.
+            Local.PublicIpLookup {
+                id: publicIpLookup
+                lookupEnabled: fakeRoot.publicIpLookupEnabled
+                demand: fakeRoot.networkDetailsVisible
+                routeKey: networkScope.routeInterface
+                requestFactory: function() { return { readyState: 0, status: 0, responseText: "", onreadystatechange: null,
+                    open: function() {}, send: function() {}, abort: function() {} }; }
             }
             Local.SensorMonitor { id: networkDownload; metricId: "networkDownload"; valueMode: "bytesPerSecond"; sensorId: networkScope.downloadSensorId; emptyIsUnavailable: true }
             Local.SensorMonitor { id: networkUpload; metricId: "networkUpload"; valueMode: "bytesPerSecond"; sensorId: networkScope.uploadSensorId; emptyIsUnavailable: true }
@@ -147,6 +159,17 @@ TestCase {
 
     function test_everyPageLoadsWithoutSensorsOrDevices() {
         visitEveryPage(makePopup());
+    }
+
+    function test_networkPageWithPublicIpLookupEnabled() {
+        var fixture = makePopup({ publicIpLookupEnabled: true });
+        fixture.root.selectedTab = 3;
+        wait(200);
+        compare(fixture.root.publicIp.status, "loading");
+        fixture.root.publicIp.timeout = 10;
+        fixture.root.publicIp.refresh();
+        tryCompare(fixture.root.publicIp, "status", "failed", 1000);
+        visitEveryPage(fixture);
     }
 
     function test_gpuPageToleratesUnavailableDeviceSensors() {

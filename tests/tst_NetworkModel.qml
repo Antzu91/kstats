@@ -51,6 +51,15 @@ TestCase {
             property QtObject networkUploadMonitor: QtObject { property string text: "N/A" }
             property QtObject networkDownloadMonitor: QtObject { property string text: "N/A" }
             property alias networkModel: scope
+            property QtObject publicIp: QtObject {
+                property string status: "disabled"
+                property string address: ""
+                property var checkedAt: null
+                property string error: ""
+                property bool loading: false
+                function refresh() { return false; }
+            }
+            function setPublicIpLookupEnabled(enabled) {}
             property alias page: page
             function historyCoverageText(samples) { return ""; }
             property string initialSource: "interface:eno1"

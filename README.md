@@ -98,6 +98,17 @@ NetworkManager, the managed ones). Changing the source starts a new history
 series. The popup details describe the measured interface, or the default-route
 interface for combined and custom sources.
 
+### Public IP
+
+Public IP lookup is off by default. Turn it on with `Public IP` in the widget
+settings or the `Look up via ipify.org` button on the Network page. When enabled,
+KStats sends one HTTPS request to `api64.ipify.org` when the Network page opens
+and when you press Refresh; it never polls in the background. The service sees
+your public IP address. The result describes the route to that service, including
+any VPN or proxy, and is not tied to the network source above. A failed or
+timed-out lookup keeps the previous result, dimmed, until you refresh. Turning the
+setting off clears it.
+
 ## Development checks
 
 Run the QML behavior tests with Qt 6 Quick Test installed:
