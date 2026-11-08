@@ -67,6 +67,10 @@ Item {
         inFlight = true;
         var requestGeneration = generation;
         commands.provider.exec(NetworkSource.routeCommand, function(result) {
+            // The model may be destroyed (widget removed) before a reply arrives.
+            if (!model) {
+                return;
+            }
             model.inFlight = false;
             if (requestGeneration !== model.generation || !model.routeNeeded) {
                 if (model.routeNeeded) {

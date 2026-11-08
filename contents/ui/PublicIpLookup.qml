@@ -58,7 +58,8 @@ Item {
         requestPending = true;
         error = "";
         request.onreadystatechange = function() {
-            if (request.readyState === 4 && generation === lookup._generation) {
+            // Requests outlive QML objects; ignore replies after destruction.
+            if (lookup && request.readyState === 4 && generation === lookup._generation) {
                 lookup.finish(request.status, request.responseText);
             }
         };
@@ -122,6 +123,7 @@ Item {
             refresh();
         }
     }
+    Component.onDestruction: abort("")
     onDemandChanged: {
         if (demand) {
             refresh();

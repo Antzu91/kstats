@@ -211,4 +211,21 @@ TestCase {
         compare(lookup.status, "failed");
         compare(lookup.error, "network");
     }
+
+    function test_destroyedLookupAbortsAndIgnoresLateReply() {
+        var lookup = lookupFactory.createObject(testCase, {
+            lookupEnabled: true,
+            requestFactory: function() { return testCase.fakeRequest(); }
+        });
+        lookup.demand = true;
+        var request = created[0];
+        var handler = request.onreadystatechange;
+        lookup.destroy();
+        wait(20);
+        verify(request.aborted);
+        request.status = 200;
+        request.responseText = '{"ip":"203.0.113.7"}';
+        request.readyState = 4;
+        handler();
+    }
 }

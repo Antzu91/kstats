@@ -126,12 +126,13 @@ Item {
         detailsInFlight = true;
         var generation = detailsGeneration;
         addressCommand.provider.exec("ip -o addr show dev " + name + " scope global", function(addressResult) {
-            if (!page.acceptDetails(generation)) {
+            // The page may be destroyed (widget removed) before a reply arrives.
+            if (!page || !page.acceptDetails(generation)) {
                 return;
             }
             page.localIp = addressResult.exitCode === 0 ? page.parseAddress(addressResult.stdout) : "";
             macCommand.provider.exec("cat /sys/class/net/" + name + "/address", function(macResult) {
-                if (!page.acceptDetails(generation)) {
+                if (!page || !page.acceptDetails(generation)) {
                     return;
                 }
                 page.detailsInFlight = false;
