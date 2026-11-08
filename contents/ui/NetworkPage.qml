@@ -81,6 +81,7 @@ Item {
     }
 
     clip: true
+    implicitHeight: pageContent.implicitHeight
     Layout.fillWidth: true
     Layout.fillHeight: true
 
@@ -242,6 +243,8 @@ Item {
     }
 
     ColumnLayout {
+        id: pageContent
+
         anchors.fill: parent
         spacing: Kirigami.Units.smallSpacing
 

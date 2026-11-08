@@ -21,6 +21,7 @@ Item {
     readonly property string fanSensorId: CpuSensorChoice.resolvedSensorId(fanChoice, discoveredFanSensorId)
 
     clip: true
+    implicitHeight: pageContent.implicitHeight
     Layout.fillWidth: true
     Layout.fillHeight: true
 
@@ -207,6 +208,8 @@ Item {
     }
 
     ColumnLayout {
+        id: pageContent
+
         anchors.fill: parent
         spacing: Kirigami.Units.smallSpacing
 

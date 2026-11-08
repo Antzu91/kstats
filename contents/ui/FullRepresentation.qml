@@ -19,6 +19,13 @@ Controls.Pane {
 
     padding: Kirigami.Units.largeSpacing
 
+    component PageScroll: Controls.ScrollView {
+        contentWidth: availableWidth
+        clip: true
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+    }
+
     ColumnLayout {
         anchors.fill: parent
         spacing: Kirigami.Units.largeSpacing
@@ -88,24 +95,54 @@ Controls.Pane {
             Layout.fillWidth: true
             Layout.fillHeight: true
 
-            Local.CpuPage {
-                rootItem: full.rootItem
+            // Pages scroll when the popup is short or fonts are large; the
+            // header and tabs above stay reachable. GPU scrolls internally.
+            PageScroll {
+                id: cpuScroll
+                objectName: "cpuScroll"
+
+                Local.CpuPage {
+                    rootItem: full.rootItem
+                    width: cpuScroll.availableWidth
+                    height: Math.max(implicitHeight, cpuScroll.availableHeight)
+                }
             }
 
-            Local.RamPage {
-                rootItem: full.rootItem
+            PageScroll {
+                id: ramScroll
+                objectName: "ramScroll"
+
+                Local.RamPage {
+                    rootItem: full.rootItem
+                    width: ramScroll.availableWidth
+                    height: Math.max(implicitHeight, ramScroll.availableHeight)
+                }
             }
 
             Local.GpuPage {
                 rootItem: full.rootItem
             }
 
-            Local.NetworkPage {
-                rootItem: full.rootItem
+            PageScroll {
+                id: networkScroll
+                objectName: "networkScroll"
+
+                Local.NetworkPage {
+                    rootItem: full.rootItem
+                    width: networkScroll.availableWidth
+                    height: Math.max(implicitHeight, networkScroll.availableHeight)
+                }
             }
 
-            Local.DiskPage {
-                rootItem: full.rootItem
+            PageScroll {
+                id: diskScroll
+                objectName: "diskScroll"
+
+                Local.DiskPage {
+                    rootItem: full.rootItem
+                    width: diskScroll.availableWidth
+                    height: Math.max(implicitHeight, diskScroll.availableHeight)
+                }
             }
         }
     }

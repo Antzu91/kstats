@@ -134,11 +134,14 @@ TestCase {
                 selectedDeviceId: "gpu0"
                 popupDemand: fakeRoot.gpuDetailsVisible
             }
+            property real popupHeight: testCase.height
+            property alias popup: popup
             // Bound by id, as main.qml does, so pages never see a null root.
             Local.FullRepresentation {
+                id: popup
                 rootItem: fakeRoot
                 width: testCase.width
-                height: testCase.height
+                height: fakeRoot.popupHeight
             }
         }
     }
@@ -193,5 +196,27 @@ TestCase {
         verify(fixture.root.gpuMonitors("gpu0") !== null);
         compare(fixture.root.gpuMonitors("gpu0").usage.available, false);
         visitEveryPage(fixture);
+    }
+
+    function test_pagesScrollWhenThePopupIsShort() {
+        // Far below the preferred height, as with large fonts or a small screen.
+        var fixture = makePopup({ popupHeight: 360 });
+        visitEveryPage(fixture);
+        ["cpuScroll", "ramScroll", "networkScroll", "diskScroll"].forEach(function(name) {
+            var scroll = findChild(fixture.root.popup, name);
+            verify(scroll !== null, name);
+            verify(scroll.contentHeight > scroll.availableHeight, name + " should scroll");
+        });
+    }
+
+    function test_pagesFillTallPopupsWithoutScrolling() {
+        var fixture = makePopup({ popupHeight: 2000 });
+        visitEveryPage(fixture);
+        ["cpuScroll", "ramScroll", "networkScroll", "diskScroll"].forEach(function(name) {
+            var scroll = findChild(fixture.root.popup, name);
+            // Nothing to scroll, and the page stretches to the full height.
+            verify(scroll.contentHeight <= scroll.availableHeight, name);
+            compare(scroll.contentChildren[0].height, scroll.availableHeight, name);
+        });
     }
 }

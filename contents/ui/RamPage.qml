@@ -21,6 +21,7 @@ Item {
     readonly property bool customGaugeSensor: gaugeSensorId.length > 0 && gaugeSensorId !== defaultSensorId
 
     clip: true
+    implicitHeight: pageContent.implicitHeight
     Layout.fillWidth: true
     Layout.fillHeight: true
 
@@ -190,6 +191,8 @@ Item {
     }
 
     ColumnLayout {
+        id: pageContent
+
         anchors.fill: parent
         spacing: Kirigami.Units.smallSpacing
 

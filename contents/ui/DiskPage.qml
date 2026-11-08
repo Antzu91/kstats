@@ -56,6 +56,7 @@ Item {
     readonly property real diskRowHeight: Kirigami.Units.gridUnit * 3.95
 
     clip: true
+    implicitHeight: pageContent.implicitHeight
     Layout.fillWidth: true
     Layout.fillHeight: true
 
@@ -576,6 +577,8 @@ Item {
     }
 
     Column {
+        id: pageContent
+
         anchors.fill: parent
         spacing: page.sectionSpacing
 
