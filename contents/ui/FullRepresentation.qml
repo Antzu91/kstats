@@ -3,6 +3,7 @@ import QtQuick.Controls as Controls
 import QtQuick.Layouts
 
 import org.kde.kirigami as Kirigami
+import "ModuleCatalog.js" as ModuleCatalog
 import "." as Local
 
 Controls.Pane {
@@ -62,44 +63,22 @@ Controls.Pane {
                 anchors.margins: Kirigami.Units.smallSpacing / 2
                 spacing: Kirigami.Units.smallSpacing / 2
 
-                Local.TabPill {
-                    checked: full.currentTab === 0
-                    iconName: "cpu"
-                    accentColor: Kirigami.Theme.positiveTextColor
-                    text: i18nc("@title:tab", "CPU")
-                    onClicked: full.rootItem.selectTab(0)
-                }
+                // Follows the configured module order, including modules hidden
+                // from the panel; each pill resolves its page from the module ID.
+                Repeater {
+                    model: full.rootItem.moduleOrder
 
-                Local.TabPill {
-                    checked: full.currentTab === 1
-                    iconName: "memory"
-                    accentColor: Kirigami.Theme.focusColor
-                    text: i18nc("@title:tab", "RAM")
-                    onClicked: full.rootItem.selectTab(1)
-                }
+                    delegate: Local.TabPill {
+                        required property string modelData
+                        readonly property var info: full.rootItem.modules.module(modelData)
+                        readonly property int pageIndex: ModuleCatalog.pageIndex(modelData)
 
-                Local.TabPill {
-                    checked: full.currentTab === 2
-                    iconName: "video-display"
-                    accentColor: Kirigami.Theme.negativeTextColor
-                    text: i18nc("@title:tab", "GPU")
-                    onClicked: full.rootItem.selectTab(2)
-                }
-
-                Local.TabPill {
-                    checked: full.currentTab === 4
-                    iconName: "drive-harddisk"
-                    accentColor: Kirigami.Theme.neutralTextColor
-                    text: i18nc("@title:tab", "DISK")
-                    onClicked: full.rootItem.selectTab(4)
-                }
-
-                Local.TabPill {
-                    checked: full.currentTab === 3
-                    iconName: "network-wired"
-                    accentColor: Kirigami.Theme.visitedLinkColor
-                    text: i18nc("@title:tab", "NET")
-                    onClicked: full.rootItem.selectTab(3)
+                        checked: full.currentTab === pageIndex
+                        iconName: info.icon
+                        accentColor: Kirigami.Theme[info.colorRole]
+                        text: info.tabLabel
+                        onClicked: full.rootItem.selectTab(pageIndex)
+                    }
                 }
             }
         }

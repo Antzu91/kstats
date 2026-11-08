@@ -39,6 +39,8 @@ TestCase {
             property string cpuTemperatureSetting: "lmsensors/missing-isa-0000/temp1"
             property string cpuFanSetting: "off"
             property int selectedTab: 0
+            readonly property var moduleOrder: ["network", "disk", "cpu", "gpu", "memory"]
+            property alias modules: catalog
             property bool expanded: true
             property var gpuDevices: []
             readonly property bool detailsVisible: expanded
@@ -88,6 +90,7 @@ TestCase {
             function openSystemMonitor() {}
 
             Local.HistoryStore { id: store }
+            Local.ModuleCatalog { id: catalog }
             Local.SensorMonitor { id: cpuUsage; metricId: "cpu"; valueMode: "percent"; sensorId: "cpu/all/usage" }
             Local.SensorMonitor { id: memoryUsage; metricId: "memory"; valueMode: "percent"; sensorId: "memory/physical/usedPercent" }
             Local.SensorMonitor { id: diskUsage; metricId: "disk"; valueMode: "percent"; sensorId: "disk/all/usedPercent" }

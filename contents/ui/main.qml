@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import "History.js" as History
+import "ModuleCatalog.js" as ModuleCatalog
 
 import org.kde.kirigami as Kirigami
 import org.kde.ksysguard.sensors as Sensors
@@ -46,6 +47,9 @@ PlasmoidItem {
     readonly property bool diskDetailsVisible: detailsVisible && selectedTab === 4
     readonly property var gpuUsageMonitor: gpuPool.selectedUsage
     property int selectedTab: 0
+    // Module IDs in the configured order; the panel and popup tabs follow it.
+    readonly property var moduleOrder: ModuleCatalog.normalizeOrder(Plasmoid.configuration.moduleOrder)
+    property alias modules: moduleCatalog
     readonly property int historyWindowMinutes: [1, 5, 15].indexOf(Number(Plasmoid.configuration.historyWindowMinutes)) >= 0
         ? Number(Plasmoid.configuration.historyWindowMinutes) : 1
     readonly property int historyWindowDuration: historyWindowMinutes * 60000
@@ -184,6 +188,10 @@ PlasmoidItem {
                 Qt.openUrlExternally("applications:org.kde.plasma-systemmonitor.desktop");
             }
         });
+    }
+
+    Local.ModuleCatalog {
+        id: moduleCatalog
     }
 
     compactRepresentation: Local.CompactRepresentation {

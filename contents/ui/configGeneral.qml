@@ -6,6 +6,7 @@ import org.kde.kcmutils as KCM
 import org.kde.kirigami as Kirigami
 import "CpuSensorChoice.js" as CpuSensorChoice
 import "DiskSource.js" as DiskSource
+import "ModuleCatalog.js" as ModuleCatalog
 import "NetworkSource.js" as NetworkSource
 import "." as Local
 
@@ -22,6 +23,7 @@ KCM.SimpleKCM {
     property string cfg_gpuDeviceId: "gpu0"
     property string cfg_networkSource: "all"
     property string cfg_diskSource: "all"
+    property string cfg_moduleOrder: ModuleCatalog.defaultOrder
     property string cfg_cpuTemperatureSensor: "auto"
     property string cfg_cpuFanSensor: "auto"
     property alias cfg_showDisk: showDisk.checked
@@ -45,6 +47,7 @@ KCM.SimpleKCM {
     property string cfg_gpuDeviceIdDefault
     property string cfg_networkSourceDefault
     property string cfg_diskSourceDefault
+    property string cfg_moduleOrderDefault
     property string cfg_cpuTemperatureSensorDefault
     property string cfg_cpuFanSensorDefault
     property bool cfg_showDiskDefault
@@ -59,6 +62,12 @@ KCM.SimpleKCM {
     property string cfg_networkUploadSensorIdDefault
 
     property Local.GpuDiscovery gpuDiscovery: Local.GpuDiscovery {}
+    property Local.ModuleCatalog moduleCatalog: Local.ModuleCatalog {}
+    readonly property var moduleOrderList: ModuleCatalog.normalizeOrder(root.cfg_moduleOrder)
+
+    function moveModule(id, delta) {
+        root.cfg_moduleOrder = ModuleCatalog.move(root.cfg_moduleOrder, id, delta);
+    }
     property Local.SensorListing networkInterfaces: Local.SensorListing {
         keyFromSensorId: NetworkSource.interfaceFromSensorId
     }
@@ -371,6 +380,66 @@ KCM.SimpleKCM {
             font: Kirigami.Theme.smallFont
             color: Kirigami.Theme.disabledTextColor
             text: i18nc("@info", "Sends a request to api64.ipify.org, which sees your public IP address. Only when the Network page opens or you press Refresh; never in the background.")
+        }
+
+        Kirigami.Separator {
+            Kirigami.FormData.isSection: true
+            Kirigami.FormData.label: i18nc("@title:group", "Module Order")
+            Layout.fillWidth: true
+        }
+
+        // One static child: FormLayout breaks when a Repeater recreates its rows.
+        ColumnLayout {
+            Kirigami.FormData.label: i18nc("@label", "Order:")
+            spacing: 0
+
+            Repeater {
+                model: root.moduleOrderList
+
+                delegate: RowLayout {
+                    id: orderRow
+
+                    required property string modelData
+                    required property int index
+                    readonly property string moduleName: root.moduleCatalog.module(modelData).name
+
+                    spacing: Kirigami.Units.smallSpacing
+
+                    Controls.Label {
+                        text: i18nc("@label position and module name", "%1. %2", orderRow.index + 1, orderRow.moduleName)
+                        Layout.minimumWidth: Kirigami.Units.gridUnit * 7
+                    }
+
+                    Controls.ToolButton {
+                        icon.name: "arrow-up"
+                        display: Controls.AbstractButton.IconOnly
+                        text: i18nc("@action:button", "Move %1 up", orderRow.moduleName)
+                        enabled: orderRow.index > 0
+                        onClicked: root.moveModule(orderRow.modelData, -1)
+                        Controls.ToolTip.visible: hovered
+                        Controls.ToolTip.text: text
+                    }
+
+                    Controls.ToolButton {
+                        icon.name: "arrow-down"
+                        display: Controls.AbstractButton.IconOnly
+                        text: i18nc("@action:button", "Move %1 down", orderRow.moduleName)
+                        enabled: orderRow.index < root.moduleOrderList.length - 1
+                        onClicked: root.moveModule(orderRow.modelData, 1)
+                        Controls.ToolTip.visible: hovered
+                        Controls.ToolTip.text: text
+                    }
+                }
+            }
+        }
+
+        Controls.Label {
+            Layout.fillWidth: true
+            Layout.maximumWidth: Kirigami.Units.gridUnit * 22
+            wrapMode: Text.Wrap
+            font: Kirigami.Theme.smallFont
+            color: Kirigami.Theme.disabledTextColor
+            text: i18nc("@info", "The panel and the popup tabs use this order. Modules hidden from the panel keep their popup tab.")
         }
 
         Kirigami.Separator {

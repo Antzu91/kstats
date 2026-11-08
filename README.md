@@ -66,6 +66,13 @@ Missing or stale sensor readings show `N/A`; an actual zero remains a valid
 reading. Sensor monitoring retries after backend failures without changing the
 configured sensor or GPU selection.
 
+## Panel modules and order
+
+`Bar Modules` in the widget settings choose which modules appear in the panel, and
+`Module Order` sets their order with Move up and Move down. The popup tabs follow
+the same order; a module hidden from the panel keeps its popup tab. With every
+module hidden, the panel shows the KStats icon, which still opens the popup.
+
 ## CPU temperature and fan
 
 `CPU temperature` and `CPU fan` in the widget settings choose the sensors shown on

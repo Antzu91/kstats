@@ -169,4 +169,13 @@ TestCase {
         page.sensorPicker.accept();
         compare(page.cfg_cpuFanSensor, "auto");
     }
+
+    function test_moduleOrderMoves() {
+        var page = make({ cfg_moduleOrder: "cpu,memory,gpu,disk,network" });
+        compare(page.moduleOrderList, ["cpu", "memory", "gpu", "disk", "network"]);
+        page.moveModule("network", -1);
+        compare(page.cfg_moduleOrder, "cpu,memory,gpu,network,disk");
+        page.moveModule("cpu", -1);
+        compare(page.cfg_moduleOrder, "cpu,memory,gpu,network,disk");
+    }
 }

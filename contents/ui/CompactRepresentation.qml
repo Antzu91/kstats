@@ -21,6 +21,11 @@ Item {
     readonly property real fixedWidth: Math.max(minimumBarWidth, hasConfiguredBarLength ? configuredBarLength : adaptiveBarLength)
     readonly property real contentWidth: Math.max(0, hasConfiguredBarLength ? fixedWidth - horizontalPadding * 2 : fixedWidth)
 
+    // Column of a module in the configured order; hidden modules leave no gap.
+    function moduleColumn(id) {
+        return Math.max(0, compact.rootItem.moduleOrder.indexOf(id));
+    }
+
     function networkRateNumber(text) {
         const value = String(text).trim();
         const match = value.match(/^(.*\S)\s+(\S+\/s)$/);
@@ -109,7 +114,25 @@ Item {
         memoryDemand: memoryTarget.hovered
     }
 
-    RowLayout {
+    // With every module hidden the widget must still open; show its icon.
+    Kirigami.Icon {
+        anchors.centerIn: parent
+        width: Math.min(parent.width, parent.height)
+        height: width
+        visible: !compact.rootItem.panelModulesVisible
+        source: "utilities-system-monitor"
+        active: fallbackMouse.containsMouse
+
+        MouseArea {
+            id: fallbackMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            onClicked: compact.rootItem.expanded = !compact.rootItem.expanded
+        }
+    }
+
+    // A one-row grid so each module sits in its configured column.
+    GridLayout {
         id: row
 
         readonly property real fitScale: Math.min(1, compact.contentWidth / Math.max(1, implicitWidth))
@@ -119,10 +142,14 @@ Item {
         height: parent.height
         scale: fitScale
         transformOrigin: Item.TopLeft
-        spacing: compact.moduleSpacing
+        rows: 1
+        rowSpacing: 0
+        columnSpacing: compact.moduleSpacing
 
         ClickTarget {
             visible: Plasmoid.configuration.showCpu
+            Layout.row: 0
+            Layout.column: compact.moduleColumn("cpu")
             toolTipTitle: toolTips.cpuTitle
             toolTipText: toolTips.cpuText
             accentColor: Kirigami.Theme.positiveTextColor
@@ -144,6 +171,8 @@ Item {
             id: memoryTarget
 
             visible: Plasmoid.configuration.showMemory
+            Layout.row: 0
+            Layout.column: compact.moduleColumn("memory")
             toolTipTitle: toolTips.memoryTitle
             toolTipText: toolTips.memoryText
             accentColor: Kirigami.Theme.focusColor
@@ -163,6 +192,8 @@ Item {
 
         ClickTarget {
             visible: Plasmoid.configuration.showGpu
+            Layout.row: 0
+            Layout.column: compact.moduleColumn("gpu")
             toolTipTitle: toolTips.gpuTitle
             toolTipText: toolTips.gpuText
             accentColor: Kirigami.Theme.negativeTextColor
@@ -185,6 +216,8 @@ Item {
 
         ClickTarget {
             visible: Plasmoid.configuration.showDisk
+            Layout.row: 0
+            Layout.column: compact.moduleColumn("disk")
             toolTipTitle: toolTips.diskTitle
             toolTipText: toolTips.diskText
             accentColor: Kirigami.Theme.neutralTextColor
@@ -205,6 +238,8 @@ Item {
 
         ClickTarget {
             visible: Plasmoid.configuration.showNetwork
+            Layout.row: 0
+            Layout.column: compact.moduleColumn("network")
             toolTipTitle: toolTips.networkTitle
             toolTipText: toolTips.networkText
             accentColor: Kirigami.Theme.visitedLinkColor
