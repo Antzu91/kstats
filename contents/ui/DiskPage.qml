@@ -20,6 +20,8 @@ Item {
             refreshInterval: Math.max(3000, page.rootItem.sensorUpdateRate * 3)
         }
     }
+    // Replace in fixtures to hold or fail SMART reads separately from layout reads.
+    property Component healthCommandComponent: Component { Local.RunCommand {} }
     property var disks: []
     property var mounts: []
     property var previousDiskStats: ({})
@@ -69,6 +71,81 @@ Item {
             return i18nc("@label disk kilobytes per second", "%1 KB/s", (value / 1024).toFixed(value >= 10240 ? 0 : 1));
         }
         return i18nc("@label disk bytes per second", "%1 B/s", Math.round(value));
+    }
+
+    function healthSummary(deviceName) {
+        var health = diskHealth.healthFor(deviceName);
+        return health ? health.summary : null;
+    }
+
+    function healthColor(status) {
+        return status === "failing" ? Kirigami.Theme.negativeTextColor
+            : status === "warning" ? Kirigami.Theme.neutralTextColor
+            : status === "good" ? Kirigami.Theme.positiveTextColor
+            : Kirigami.Theme.disabledTextColor;
+    }
+
+    function healthStatusText(status) {
+        switch (status) {
+        case "good":
+            return i18nc("@info:status drive health", "Healthy");
+        case "warning":
+            return i18nc("@info:status drive health", "Warning");
+        case "failing":
+            return i18nc("@info:status drive health", "Failing");
+        default:
+            return i18nc("@info:status drive health", "No data");
+        }
+    }
+
+    function healthProblemText(code) {
+        switch (code) {
+        case "missing":
+            return i18nc("@info drive health", "Not reported by UDisks");
+        case "unsupported":
+            return i18nc("@info drive health", "SMART not supported");
+        case "disabled":
+            return i18nc("@info drive health", "SMART is disabled");
+        case "pending":
+            return i18nc("@info drive health", "Waiting for the first SMART reading");
+        case "nvme-spare":
+            return i18nc("@info drive health", "Spare capacity is low");
+        case "nvme-temperature":
+            return i18nc("@info drive health", "Temperature above its threshold");
+        case "nvme-degraded":
+            return i18nc("@info drive health", "Reliability is degraded");
+        case "nvme-readonly":
+            return i18nc("@info drive health", "Drive switched to read-only");
+        case "nvme-volatile_mem":
+            return i18nc("@info drive health", "Backup memory failed");
+        case "nvme-pmr_readonly":
+            return i18nc("@info drive health", "Persistent memory is read-only");
+        case "worn-out":
+            return i18nc("@info drive health", "Rated endurance used up");
+        case "media-errors":
+            return i18nc("@info drive health", "Media errors reported");
+        case "failing":
+            return i18nc("@info drive health", "SMART predicts failure");
+        case "attributes-failing":
+            return i18nc("@info drive health", "Attributes below threshold");
+        case "bad-sectors":
+            return i18nc("@info drive health", "Bad sectors reported");
+        default:
+            return code;
+        }
+    }
+
+    function healthProblemsText(summary) {
+        if (!summary) {
+            return diskHealth.readStatus === "unavailable"
+                ? i18nc("@info drive health", "SMART data unavailable")
+                : i18nc("@info drive health", "Reading SMART data…");
+        }
+        return summary.problems.map(page.healthProblemText).join(", ");
+    }
+
+    function formatHours(hours) {
+        return i18nc("@label drive power-on time in hours", "%1 h", Number(hours).toLocaleString(Qt.locale(), "f", 0));
     }
 
     function isIgnoredDisk(name) {
@@ -372,6 +449,12 @@ Item {
         demandChanged();
     }
 
+    Local.DiskHealthCollector {
+        id: diskHealth
+        active: page.active
+        commandComponent: page.healthCommandComponent
+    }
+
     Timer {
         interval: Math.max(2500, page.rootItem.sensorUpdateRate * 2)
         repeat: true
@@ -396,6 +479,25 @@ Item {
         id: statsCommand
         readonly property var provider: item
         sourceComponent: page.commandComponent
+    }
+
+    component HealthValue: RowLayout {
+        property string label: ""
+        property string value: ""
+
+        spacing: Kirigami.Units.smallSpacing / 2
+
+        Controls.Label {
+            text: label
+            color: Kirigami.Theme.disabledTextColor
+            font.pixelSize: Kirigami.Theme.smallFont.pixelSize
+        }
+
+        Controls.Label {
+            text: value
+            font.weight: Font.DemiBold
+            font.pixelSize: Kirigami.Theme.smallFont.pixelSize
+        }
     }
 
     component ActivityValue: RowLayout {
@@ -515,6 +617,14 @@ Item {
                     text: i18nc("@title:tab", "Mounts")
                     onClicked: page.currentView = 1
                 }
+
+                Local.TabPill {
+                    checked: page.currentView === 2
+                    iconName: "security-high"
+                    accentColor: Kirigami.Theme.focusColor
+                    text: i18nc("@title:tab drive SMART health", "Health")
+                    onClicked: page.currentView = 2
+                }
             }
         }
 
@@ -545,11 +655,42 @@ Item {
                             spacing: 0
                             Layout.fillWidth: true
 
-                            Controls.Label {
-                                text: modelData.title
-                                font.weight: Font.DemiBold
-                                elide: Text.ElideRight
+                            RowLayout {
                                 Layout.fillWidth: true
+                                spacing: Kirigami.Units.smallSpacing / 2
+
+                                Controls.Label {
+                                    text: modelData.title
+                                    font.weight: Font.DemiBold
+                                    elide: Text.ElideRight
+                                }
+
+                                // Only drives that need attention get a marker; it opens Health.
+                                Rectangle {
+                                    id: healthMarker
+                                    readonly property var summary: page.healthSummary(modelData.name)
+                                    visible: summary !== null && (summary.status === "warning" || summary.status === "failing")
+                                    Layout.preferredWidth: 8
+                                    Layout.preferredHeight: 8
+                                    radius: 4
+                                    color: page.healthColor(summary ? summary.status : "unknown")
+
+                                    HoverHandler {
+                                        id: healthMarkerHover
+                                    }
+                                    TapHandler {
+                                        onTapped: page.currentView = 2
+                                    }
+                                    Controls.ToolTip.visible: healthMarkerHover.hovered
+                                    Controls.ToolTip.text: healthMarker.summary
+                                        ? i18nc("@info:tooltip drive health status and problems", "%1: %2",
+                                            page.healthStatusText(healthMarker.summary.status), page.healthProblemsText(healthMarker.summary))
+                                        : ""
+                                }
+
+                                Item {
+                                    Layout.fillWidth: true
+                                }
                             }
 
                             Controls.Label {
@@ -738,8 +879,130 @@ Item {
             }
         }
 
+        Repeater {
+            model: page.currentView === 2 ? page.disks : []
+
+            delegate: Rectangle {
+                id: healthCard
+
+                required property var modelData
+                readonly property var health: diskHealth.healthFor(modelData.name)
+                readonly property var summary: health ? health.summary : null
+                readonly property string status: summary ? summary.status : "unknown"
+
+                width: parent.width
+                height: page.diskRowHeight
+                clip: true
+                radius: Kirigami.Units.cornerRadius
+                color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.04)
+                border.width: 1
+                border.color: healthCard.status === "failing" || healthCard.status === "warning"
+                    ? Qt.rgba(page.healthColor(healthCard.status).r, page.healthColor(healthCard.status).g, page.healthColor(healthCard.status).b, 0.45)
+                    : Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08)
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: Kirigami.Units.smallSpacing
+                    spacing: Kirigami.Units.smallSpacing / 2
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Kirigami.Units.smallSpacing
+
+                        ColumnLayout {
+                            spacing: 0
+                            Layout.fillWidth: true
+
+                            Controls.Label {
+                                text: healthCard.modelData.title
+                                font.weight: Font.DemiBold
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                            }
+
+                            // Problems replace the model line so they are never hidden.
+                            Controls.Label {
+                                readonly property bool showProblems: healthCard.summary === null || healthCard.summary.problems.length > 0
+                                text: showProblems ? page.healthProblemsText(healthCard.summary)
+                                    : (healthCard.modelData.model.length > 0 ? healthCard.modelData.model : healthCard.modelData.name)
+                                color: showProblems && (healthCard.status === "failing" || healthCard.status === "warning")
+                                    ? page.healthColor(healthCard.status) : Kirigami.Theme.disabledTextColor
+                                font.pixelSize: Math.max(9, Kirigami.Theme.smallFont.pixelSize - 1)
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                            }
+                        }
+
+                        RowLayout {
+                            spacing: Kirigami.Units.smallSpacing / 2
+
+                            Rectangle {
+                                Layout.preferredWidth: 8
+                                Layout.preferredHeight: 8
+                                radius: 4
+                                color: page.healthColor(healthCard.status)
+                            }
+
+                            Controls.Label {
+                                text: page.healthStatusText(healthCard.status)
+                                color: healthCard.status === "unknown" ? Kirigami.Theme.disabledTextColor : page.healthColor(healthCard.status)
+                                font.weight: Font.DemiBold
+                                font.pixelSize: Kirigami.Theme.smallFont.pixelSize
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Kirigami.Units.largeSpacing
+
+                        HealthValue {
+                            visible: healthCard.summary !== null && healthCard.summary.temperatureC !== null
+                            label: i18nc("@label drive temperature", "Temp")
+                            value: visible ? i18nc("@label temperature in Celsius", "%1 °C", Math.round(healthCard.summary.temperatureC)) : ""
+                        }
+
+                        HealthValue {
+                            visible: healthCard.summary !== null && healthCard.summary.powerOnHours !== null
+                            label: i18nc("@label drive power-on time", "On")
+                            value: visible ? page.formatHours(healthCard.summary.powerOnHours) : ""
+                        }
+
+                        HealthValue {
+                            visible: healthCard.summary !== null && healthCard.summary.wearPercent !== null
+                            label: i18nc("@label drive wear, share of rated endurance used", "Wear")
+                            value: visible ? i18nc("@label percent value", "%1%", healthCard.summary.wearPercent) : ""
+                        }
+
+                        HealthValue {
+                            visible: healthCard.summary !== null && healthCard.summary.dataWritten !== null
+                            label: i18nc("@label total data written to the drive", "Written")
+                            value: visible ? page.formatBytes(healthCard.summary.dataWritten) : ""
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                        }
+                    }
+
+                    Item {
+                        Layout.fillHeight: true
+                    }
+                }
+            }
+        }
+
         Controls.Label {
-            visible: page.currentView === 0 ? page.disks.length === 0 : page.mounts.length === 0
+            visible: page.currentView === 2 && diskHealth.readStatus === "unavailable"
+            width: parent.width
+            text: i18nc("@info", "SMART data needs the UDisks service and busctl.")
+            color: Kirigami.Theme.disabledTextColor
+            font.pixelSize: Kirigami.Theme.smallFont.pixelSize
+            wrapMode: Text.WordWrap
+        }
+
+        Controls.Label {
+            visible: page.currentView === 1 ? page.mounts.length === 0 : page.disks.length === 0
             width: parent.width
             text: page.errorText.length > 0 ? page.errorText : i18nc("@info:status", "No disk data yet")
             color: Kirigami.Theme.disabledTextColor

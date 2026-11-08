@@ -78,6 +78,20 @@ reads from memory, so read activity is often near zero even while applications
 read files, while writes still reach the disk. Per-disk rows show each physical
 disk's current rate.
 
+## Drive health
+
+The Disk page's `Health` view shows SMART data for each physical disk: status,
+temperature, power-on time, wear, and, for NVMe drives, total data written. Drives
+with a warning or predicted failure also get a marker in the `Disks` view.
+
+KStats reads the values UDisks2 already caches, using `busctl` on the system bus
+without root and without prompting for authorization. It reads them when the Disk
+page opens and every 10 minutes while it stays open; UDisks refreshes SMART data
+itself, and KStats never wakes drives or starts self-tests. Wear for SATA drives
+comes only from well-known vendor life attributes, so it can be missing. USB
+enclosures often do not pass SMART data through. Without UDisks or `busctl`, the
+view shows `No data`.
+
 ## Network source
 
 Choose `Network source` in the widget settings. The panel, popup, tooltip, and
@@ -168,6 +182,7 @@ Implemented:
 - configurable sensor IDs and update interval
 - per-module panel tooltips
 - disk read/write activity history and a shared network source
+- SMART drive health through UDisks2
 - auto-discovered GPU usage, memory, and temperature sensors
 
 Not implemented yet:

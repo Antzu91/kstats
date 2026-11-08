@@ -21,6 +21,32 @@ TestCase {
         }
     }
     Component { id: fakeApplications; Item { implicitHeight: 1 } }
+    // SMART reads are covered by tst_DiskHealthCollector; here they report one
+    // failing drive so the Health view and attention marker are exercised.
+    property var healthRequests: []
+    Component {
+        id: fakeHealthCommand
+        QtObject {
+            function exec(command, callback) {
+                testCase.healthRequests.push(command);
+                if (command.indexOf("GetManagedObjects") < 0) {
+                    return;
+                }
+                var path = "/org/freedesktop/UDisks2/drives/Test_SSD";
+                var objects = {};
+                objects[path] = {
+                    "org.freedesktop.UDisks2.Drive": { Model: { type: "s", data: "Test SSD" } },
+                    "org.freedesktop.UDisks2.Drive.Ata": {
+                        SmartSupported: { type: "b", data: true }, SmartEnabled: { type: "b", data: false } }
+                };
+                objects["/org/freedesktop/UDisks2/block_devices/sda"] = { "org.freedesktop.UDisks2.Block": {
+                    Device: { type: "ay", data: [47, 100, 101, 118, 47, 115, 100, 97, 0] }, Drive: { type: "o", data: path } } };
+                Qt.callLater(function() {
+                    callback({ stdout: JSON.stringify({ type: "a{oa{sa{sv}}}", data: [objects] }), stderr: "", exitCode: 0 });
+                });
+            }
+        }
+    }
     Component {
         id: fixtureFactory
         Item {
@@ -53,11 +79,17 @@ TestCase {
                 rootItem: fixture
                 visible: fixture.diskTab
                 commandComponent: fakeCommand
+                healthCommandComponent: fakeHealthCommand
                 applicationsComponent: fakeApplications
             }
         }
     }
-    function init() { requests = []; pending = []; }
+    function init() {
+        requests = [];
+        pending = [];
+        healthRequests = [];
+        failOnWarning(/TypeError|ReferenceError|is not a function|is not defined|Cannot read property|Binding loop/);
+    }
     function make(properties) {
         var fixture = createTemporaryObject(fixtureFactory, testCase, properties || {});
         verify(fixture !== null);
@@ -157,5 +189,23 @@ TestCase {
         compare(requests.length, 2);
         finish();
         compare(fixture.page.errorText, "");
+    }
+
+    function test_healthViewShowsDrivesWithoutSmartSafely() {
+        var fixture = make({ diskTab: true, popupOpen: true });
+        finish();
+        tryVerify(function() { return fixture.page.healthSummary("sda") !== null; });
+        compare(fixture.page.healthSummary("sda").status, "unknown");
+        compare(fixture.page.healthSummary("sda").problems, ["disabled"]);
+        fixture.page.currentView = 2;
+        wait(20);
+        fixture.page.currentView = 1;
+        wait(20);
+        fixture.page.currentView = 0;
+        // Health reads only while the page is visible.
+        var count = healthRequests.length;
+        fixture.popupOpen = false;
+        wait(20);
+        compare(healthRequests.length, count);
     }
 }
