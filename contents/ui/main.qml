@@ -40,6 +40,10 @@ PlasmoidItem {
         return device.key === root.gpuDeviceId;
     }) || null
     readonly property bool detailsVisible: expanded || Plasmoid.formFactor === PlasmaCore.Types.Planar
+    // Pinning keeps the popup open on focus loss; it is never stored, so each
+    // session starts unpinned. A desktop widget has no popup to pin.
+    property bool popupPinned: false
+    readonly property bool pinAvailable: Plasmoid.formFactor !== PlasmaCore.Types.Planar
     readonly property bool cpuDetailsVisible: detailsVisible && selectedTab === 0
     readonly property bool memoryDetailsVisible: detailsVisible && selectedTab === 1
     readonly property bool gpuDetailsVisible: detailsVisible && selectedTab === 2
@@ -65,6 +69,7 @@ PlasmoidItem {
     readonly property var diskWriteSamples: diskWriteHistory.samples
 
     Plasmoid.backgroundHints: PlasmaCore.Types.DefaultBackground | PlasmaCore.Types.ConfigurableBackground
+    hideOnWindowDeactivate: !popupPinned
     Plasmoid.title: i18n("KStats")
     preferredRepresentation: Plasmoid.formFactor === PlasmaCore.Types.Planar ? fullRepresentation : compactRepresentation
 

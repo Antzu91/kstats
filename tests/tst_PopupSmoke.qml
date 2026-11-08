@@ -42,6 +42,8 @@ TestCase {
             readonly property var moduleOrder: ["network", "disk", "cpu", "gpu", "memory"]
             property alias modules: catalog
             property bool expanded: true
+            property bool popupPinned: false
+            property bool pinAvailable: true
             property var gpuDevices: []
             readonly property bool detailsVisible: expanded
             readonly property bool cpuDetailsVisible: detailsVisible && selectedTab === 0
@@ -249,5 +251,31 @@ TestCase {
         verify(fixture.root.popup.Window.activeFocusItem.checked);
         keyClick(Qt.Key_Left);
         compare(fixture.root.selectedTab, 0);
+    }
+
+    function test_pinTogglesWithoutTouchingTheRest() {
+        var fixture = makePopup();
+        var pin = null;
+        var stack = [fixture.root.popup];
+        while (stack.length > 0 && pin === null) {
+            var item = stack.pop();
+            if (item.icon && item.icon.name === "window-pin") {
+                pin = item;
+            }
+            for (var i = 0; item.children && i < item.children.length; ++i) {
+                stack.push(item.children[i]);
+            }
+        }
+        verify(pin !== null);
+        verify(pin.visible);
+        mouseClick(pin);
+        compare(fixture.root.popupPinned, true);
+        verify(pin.checked);
+        fixture.root.popupPinned = false;
+        verify(!pin.checked);
+        mouseClick(pin);
+        compare(fixture.root.popupPinned, true);
+        fixture.root.pinAvailable = false;
+        verify(!pin.visible);
     }
 }

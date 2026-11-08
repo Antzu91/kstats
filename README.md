@@ -85,7 +85,8 @@ module hidden, the panel shows the KStats icon, which still opens the popup.
 Panel modules are buttons: reach them with Tab and open their page with Enter or
 Space. In the popup, Ctrl+Tab and Ctrl+Shift+Tab (or Ctrl+PgDown and Ctrl+PgUp)
 switch tabs in the configured order, arrow keys move between focused tabs, and
-Escape closes the popup.
+Escape closes the popup. The pin button in the popup header keeps it open when
+focus moves away; Escape still closes it, and every session starts unpinned.
 
 ## CPU temperature and fan
 

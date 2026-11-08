@@ -78,6 +78,24 @@ Controls.Pane {
             }
 
             Controls.ToolButton {
+                visible: full.rootItem.pinAvailable
+                icon.name: "window-pin"
+                text: full.rootItem.popupPinned
+                    ? i18nc("@action:button", "Unpin: close when focus moves away")
+                    : i18nc("@action:button", "Pin: keep open when focus moves away")
+                display: Controls.AbstractButton.IconOnly
+                checkable: true
+                checked: full.rootItem.popupPinned
+                onToggled: {
+                    full.rootItem.popupPinned = checked;
+                    checked = Qt.binding(() => full.rootItem.popupPinned);
+                }
+                Controls.ToolTip.visible: hovered
+                Controls.ToolTip.text: text
+                Accessible.name: i18nc("@action:button", "Keep open")
+            }
+
+            Controls.ToolButton {
                 icon.name: "utilities-system-monitor"
                 text: i18nc("@action", "Open System Monitor")
                 display: Controls.AbstractButton.IconOnly
