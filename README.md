@@ -78,6 +78,17 @@ reads from memory, so read activity is often near zero even while applications
 read files, while writes still reach the disk. Per-disk rows show each physical
 disk's current rate.
 
+## Disk source
+
+Choose `Disk source` in the widget settings: `All disks (combined)` (the
+default), one filesystem volume reported by KSystemStats, or `Custom sensor IDs`.
+Usage, read, and write rates in the panel, popup, tooltip, and history all follow
+the chosen source, so a volume's activity is never paired with another disk's
+capacity. A chosen volume keeps its selection and shows `N/A` while unmounted.
+Configurations from earlier versions with non-default disk sensor IDs keep working
+as Custom. The Disk page summary shows the same usage as the panel, with used and
+total space where those sensors share its definition.
+
 ## Drive health
 
 The Disk page's `Health` view shows SMART data for each physical disk: status,

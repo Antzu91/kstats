@@ -44,6 +44,10 @@
         <entry name="memorySensorId" type="String">
             <default>memory/physical/usedPercent</default>
         </entry>
+        <!-- all, volume:ID or custom; custom uses the three disk sensor IDs below. -->
+        <entry name="diskSource" type="String">
+            <default>all</default>
+        </entry>
         <entry name="diskSensorId" type="String">
             <default>disk/all/usedPercent</default>
         </entry>

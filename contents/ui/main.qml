@@ -23,6 +23,7 @@ PlasmoidItem {
     readonly property var diskUsageSensor: diskUsage.sensor
     property alias diskUsageMonitor: diskUsage
     property alias diskReadMonitor: diskRead
+    property alias diskScope: diskScopeModel
     property alias diskWriteMonitor: diskWrite
     readonly property var networkDownloadSensor: networkDownload.sensor
     property alias networkDownloadMonitor: networkDownload
@@ -257,12 +258,23 @@ PlasmoidItem {
         updateRateLimit: root.sensorUpdateRate
     }
 
+    // Capacity and activity follow one scope, so a chosen volume's reads,
+    // writes and usage always describe the same filesystem.
+    Local.DiskScope {
+        id: diskScopeModel
+        source: root.configString(Plasmoid.configuration.diskSource)
+        usageSensorIdSetting: root.configString(Plasmoid.configuration.diskSensorId)
+        readSensorIdSetting: root.configString(Plasmoid.configuration.diskReadSensorId)
+        writeSensorIdSetting: root.configString(Plasmoid.configuration.diskWriteSensorId)
+        active: Plasmoid.configuration.showDisk || root.diskDetailsVisible
+    }
+
     Local.SensorMonitor {
         id: diskUsage
         metricId: "disk"
         valueMode: "percent"
         active: Plasmoid.configuration.showDisk || root.diskDetailsVisible
-        sensorId: root.configString(Plasmoid.configuration.diskSensorId)
+        sensorId: diskScopeModel.sensorIds.usage
         updateRateLimit: root.sensorUpdateRate
     }
 
@@ -271,7 +283,7 @@ PlasmoidItem {
         metricId: "diskRead"
         valueMode: "bytesPerSecond"
         active: Plasmoid.configuration.showDisk || root.diskDetailsVisible
-        sensorId: root.configString(Plasmoid.configuration.diskReadSensorId)
+        sensorId: diskScopeModel.sensorIds.read
         updateRateLimit: root.sensorUpdateRate
     }
 
@@ -280,7 +292,7 @@ PlasmoidItem {
         metricId: "diskWrite"
         valueMode: "bytesPerSecond"
         active: Plasmoid.configuration.showDisk || root.diskDetailsVisible
-        sensorId: root.configString(Plasmoid.configuration.diskWriteSensorId)
+        sensorId: diskScopeModel.sensorIds.write
         updateRateLimit: root.sensorUpdateRate
     }
 

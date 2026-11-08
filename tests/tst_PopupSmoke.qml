@@ -52,6 +52,7 @@ TestCase {
             property alias memoryUsageMonitor: memoryUsage
             property alias diskUsageMonitor: diskUsage
             property alias diskReadMonitor: diskRead
+            property alias diskScope: diskScopeModel
             property alias diskWriteMonitor: diskWrite
             property alias networkDownloadMonitor: networkDownload
             property alias networkUploadMonitor: networkUpload
@@ -87,8 +88,10 @@ TestCase {
             Local.SensorMonitor { id: cpuUsage; metricId: "cpu"; valueMode: "percent"; sensorId: "cpu/all/usage" }
             Local.SensorMonitor { id: memoryUsage; metricId: "memory"; valueMode: "percent"; sensorId: "memory/physical/usedPercent" }
             Local.SensorMonitor { id: diskUsage; metricId: "disk"; valueMode: "percent"; sensorId: "disk/all/usedPercent" }
-            Local.SensorMonitor { id: diskRead; metricId: "diskRead"; valueMode: "bytesPerSecond"; sensorId: "disk/all/read" }
-            Local.SensorMonitor { id: diskWrite; metricId: "diskWrite"; valueMode: "bytesPerSecond"; sensorId: "disk/all/write" }
+            // A chosen volume whose name sensor never answers falls back to its ID.
+            Local.DiskScope { id: diskScopeModel; source: "volume:1792e22e-bc5e"; active: true }
+            Local.SensorMonitor { id: diskRead; metricId: "diskRead"; valueMode: "bytesPerSecond"; sensorId: diskScopeModel.sensorIds.read }
+            Local.SensorMonitor { id: diskWrite; metricId: "diskWrite"; valueMode: "bytesPerSecond"; sensorId: diskScopeModel.sensorIds.write }
             // Automatic needs a route lookup; CI may lack routes or the ip command.
             Local.NetworkModel {
                 id: networkScope

@@ -4,6 +4,7 @@ import QtQuick.Layouts
 
 import org.kde.kcmutils as KCM
 import org.kde.kirigami as Kirigami
+import "DiskSource.js" as DiskSource
 import "NetworkSource.js" as NetworkSource
 import "." as Local
 
@@ -19,6 +20,7 @@ KCM.SimpleKCM {
     property alias cfg_showGpu: showGpu.checked
     property string cfg_gpuDeviceId: "gpu0"
     property string cfg_networkSource: "all"
+    property string cfg_diskSource: "all"
     property alias cfg_showDisk: showDisk.checked
     property alias cfg_showNetwork: showNetwork.checked
     property alias cfg_publicIpLookup: publicIpLookup.checked
@@ -39,6 +41,7 @@ KCM.SimpleKCM {
     property bool cfg_showGpuDefault
     property string cfg_gpuDeviceIdDefault
     property string cfg_networkSourceDefault
+    property string cfg_diskSourceDefault
     property bool cfg_showDiskDefault
     property bool cfg_showNetworkDefault
     property bool cfg_publicIpLookupDefault
@@ -51,14 +54,19 @@ KCM.SimpleKCM {
     property string cfg_networkUploadSensorIdDefault
 
     property Local.GpuDiscovery gpuDiscovery: Local.GpuDiscovery {}
-    property Local.NetworkInterfaces networkInterfaces: Local.NetworkInterfaces {}
+    property Local.SensorListing networkInterfaces: Local.SensorListing {
+        keyFromSensorId: NetworkSource.interfaceFromSensorId
+    }
+    property Local.SensorListing diskVolumes: Local.SensorListing {
+        keyFromSensorId: DiskSource.volumeFromSensorId
+    }
     property Local.NetworkLabels networkLabels: Local.NetworkLabels {}
 
     // Legacy custom sensor IDs resolve to the Custom source, as in the widget.
     readonly property string effectiveNetworkSource: NetworkSource.effectiveSource(root.cfg_networkSource,
         networkDownloadSensorId.text, networkUploadSensorId.text)
     readonly property var networkChoices: {
-        var keys = ["all", "auto"].concat(networkInterfaces.interfaces.map(function(name) {
+        var keys = ["all", "auto"].concat(networkInterfaces.keys.map(function(name) {
             return NetworkSource.interfaceSource(name);
         }));
         // Keep a configured interface selectable even while it is absent.
@@ -69,11 +77,39 @@ KCM.SimpleKCM {
         return keys.map(function(key) {
             var name = root.networkLabels.sourceLabel(key);
             if (NetworkSource.mode(key) === "interface"
-                    && root.networkInterfaces.interfaces.indexOf(NetworkSource.interfaceFromSource(key)) < 0) {
+                    && root.networkInterfaces.keys.indexOf(NetworkSource.interfaceFromSource(key)) < 0) {
                 name = i18nc("@item:inlistbox unavailable network interface", "%1 (unavailable)", name);
             }
             return { key: key, name: name };
         });
+    }
+
+    readonly property string effectiveDiskSource: DiskSource.effectiveSource(root.cfg_diskSource,
+        diskSensorId.text, diskReadSensorId.text, diskWriteSensorId.text)
+    readonly property var diskChoices: {
+        var choices = [{ key: "all", name: i18nc("@item:inlistbox disk source", "All disks (combined)") }];
+        diskVolumes.entries.forEach(function(entry) {
+            choices.push({ key: DiskSource.volumeSource(entry.key), name: entry.name });
+        });
+        // Keep a configured volume selectable even while it is unmounted.
+        if (DiskSource.mode(root.effectiveDiskSource) === "volume"
+                && !choices.some(function(choice) { return choice.key === root.effectiveDiskSource; })) {
+            choices.push({ key: root.effectiveDiskSource, name: i18nc("@item:inlistbox unavailable disk volume", "%1 (unavailable)",
+                DiskSource.volumeFromSource(root.effectiveDiskSource)) });
+        }
+        choices.push({ key: "custom", name: i18nc("@item:inlistbox disk source", "Custom sensor IDs") });
+        return choices;
+    }
+
+    function selectDiskSource(key) {
+        root.cfg_diskSource = key;
+        if (key !== "custom") {
+            // Friendly sources own their sensors; reset legacy IDs so they cannot
+            // turn the choice back into Custom on the next load.
+            diskSensorId.text = DiskSource.defaults.usage;
+            diskReadSensorId.text = DiskSource.defaults.read;
+            diskWriteSensorId.text = DiskSource.defaults.write;
+        }
     }
 
     function selectNetworkSource(key) {
@@ -189,6 +225,21 @@ KCM.SimpleKCM {
             id: showDisk
             Kirigami.FormData.label: i18nc("@label", "Disk:")
             text: i18nc("@option:check", "Show in bar")
+        }
+
+        Controls.ComboBox {
+            Kirigami.FormData.label: i18nc("@label", "Disk source:")
+            Layout.fillWidth: true
+            Layout.minimumWidth: Kirigami.Units.gridUnit * 12
+            model: root.diskChoices
+            textRole: "name"
+            valueRole: "key"
+            currentIndex: root.diskChoices.findIndex(function(choice) {
+                return choice.key === root.effectiveDiskSource;
+            })
+            onActivated: root.selectDiskSource(currentValue)
+            Controls.ToolTip.visible: hovered
+            Controls.ToolTip.text: i18nc("@info:tooltip", "Usage, read and write rates in the panel, popup and history all follow this source.")
         }
 
         Controls.CheckBox {
@@ -308,18 +359,21 @@ KCM.SimpleKCM {
 
         Controls.TextField {
             id: diskSensorId
+            enabled: DiskSource.mode(root.effectiveDiskSource) === "custom"
             Kirigami.FormData.label: i18nc("@label", "Disk:")
             placeholderText: root.cfg_diskSensorIdDefault
         }
 
         Controls.TextField {
             id: diskReadSensorId
+            enabled: DiskSource.mode(root.effectiveDiskSource) === "custom"
             Kirigami.FormData.label: i18nc("@label", "Disk read:")
             placeholderText: root.cfg_diskReadSensorIdDefault
         }
 
         Controls.TextField {
             id: diskWriteSensorId
+            enabled: DiskSource.mode(root.effectiveDiskSource) === "custom"
             Kirigami.FormData.label: i18nc("@label", "Disk write:")
             placeholderText: root.cfg_diskWriteSensorIdDefault
         }

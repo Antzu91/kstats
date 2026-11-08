@@ -70,6 +70,9 @@ TestCase {
             property QtObject diskWriteMonitor: fakeMonitor.createObject(fakeRoot, { sensorId: "", status: "disabled", text: "Off" })
             property QtObject networkDownloadMonitor: fakeMonitor.createObject(fakeRoot)
             property QtObject networkUploadMonitor: fakeMonitor.createObject(fakeRoot)
+            property QtObject diskScope: QtObject {
+                property string scopeText: "All disks"
+            }
             property QtObject networkModel: QtObject {
                 property string scopeText: "All interfaces"
             }
@@ -108,7 +111,7 @@ TestCase {
         compare(f.tips.memoryText, "Used: N/A");
         compare(f.tips.gpuTitle, "GPU");
         compare(f.tips.gpuText, "Usage: N/A");
-        compare(f.tips.diskText, "Used: N/A");
+        compare(f.tips.diskText, "All disks\nUsed: N/A");
         compare(f.tips.networkText, "All interfaces\nDownload: N/A\nUpload: N/A");
         wait(50);
         compare(f.tips.memoryText, "Used: N/A");
@@ -161,11 +164,11 @@ TestCase {
     function test_diskActivityAppearsWhenConfigured() {
         var f = make();
         f.diskUsageMonitor.text = "56%";
-        compare(f.tips.diskText, "Used: 56%");
+        compare(f.tips.diskText, "All disks\nUsed: 56%");
         f.diskReadMonitor.status = "unavailable";
         f.diskReadMonitor.text = "N/A";
         f.diskWriteMonitor.status = "available";
         f.diskWriteMonitor.text = "272 KiB/s";
-        compare(f.tips.diskText, "Used: 56%\nRead N/A · Write 272 KiB/s");
+        compare(f.tips.diskText, "All disks\nUsed: 56%\nRead N/A · Write 272 KiB/s");
     }
 }

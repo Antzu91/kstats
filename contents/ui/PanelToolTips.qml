@@ -72,6 +72,7 @@ Item {
 
     readonly property string diskTitle: i18nc("@info:tooltip", "Disk")
     readonly property string diskText: lines([
+        rootItem.diskScope ? rootItem.diskScope.scopeText : "",
         i18nc("@info:tooltip", "Used: %1", monitorText(rootItem.diskUsageMonitor)),
         monitorEnabled(rootItem.diskReadMonitor) || monitorEnabled(rootItem.diskWriteMonitor)
             ? i18nc("@info:tooltip disk activity", "Read %1 · Write %2",

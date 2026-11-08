@@ -55,7 +55,16 @@ TestCase {
             property bool diskTab: false
             property int sensorUpdateRate: 10000
             readonly property bool diskDetailsVisible: popupOpen && diskTab
-            // Aggregate activity sensors cleared in settings: the card stays hidden.
+            property QtObject diskScope: QtObject {
+                property string scopeText: "All disks"
+                property var sensorIds: ({ usage: "", read: "", write: "", used: "", total: "" })
+            }
+            property QtObject diskUsageMonitor: QtObject {
+                property string status: "unavailable"
+                property bool available: false
+                property string text: "N/A"
+            }
+            // Aggregate activity sensors cleared in settings: activity stays hidden.
             property QtObject diskReadMonitor: QtObject {
                 property string sensorId: ""
                 property string status: "disabled"

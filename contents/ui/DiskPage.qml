@@ -3,6 +3,7 @@ import QtQuick.Controls as Controls
 import QtQuick.Layouts
 
 import org.kde.kirigami as Kirigami
+import org.kde.ksysguard.sensors as Sensors
 import "." as Local
 
 Item {
@@ -15,7 +16,8 @@ Item {
         Local.TopApplicationList {
             active: page.rootItem.diskDetailsVisible
             metric: "disk"
-            limit: 5
+            // Four rows leave room for the capacity summary within the popup height.
+            limit: 4
             rowHeight: Kirigami.Units.gridUnit * 1.88
             refreshInterval: Math.max(3000, page.rootItem.sensorUpdateRate * 3)
         }
@@ -36,11 +38,15 @@ Item {
     property int refreshGeneration: 0
     readonly property real sectionSpacing: Kirigami.Units.smallSpacing * 1.15
     readonly property real switchHeight: Kirigami.Units.gridUnit * 2.1
-    readonly property real activityHeight: Kirigami.Units.gridUnit * 5.2
+    readonly property var scope: rootItem.diskScope
+    readonly property var usageMonitor: rootItem.diskUsageMonitor
     readonly property var readMonitor: rootItem.diskReadMonitor
     readonly property var writeMonitor: rootItem.diskWriteMonitor
     readonly property bool activityConfigured: readMonitor.status !== "disabled" || writeMonitor.status !== "disabled"
-    readonly property string defaultReadSensorId: "disk/all/read"
+    // Byte totals come from sensors that share the capacity sensor's definition.
+    readonly property bool bytesAvailable: usedBytesSensor.status === Sensors.Sensor.Ready
+        && totalBytesSensor.status === Sensors.Sensor.Ready
+        && usedBytesSensor.formattedValue.length > 0 && Number(totalBytesSensor.value) > 0
     readonly property real diskRowHeight: Kirigami.Units.gridUnit * 3.95
 
     clip: true
@@ -449,6 +455,20 @@ Item {
         demandChanged();
     }
 
+    Sensors.Sensor {
+        id: usedBytesSensor
+        sensorId: page.scope.sensorIds.used
+        enabled: page.active && sensorId.length > 0
+        updateRateLimit: Math.max(5000, page.rootItem.sensorUpdateRate)
+    }
+
+    Sensors.Sensor {
+        id: totalBytesSensor
+        sensorId: page.scope.sensorIds.total
+        enabled: page.active && sensorId.length > 0
+        updateRateLimit: 60000
+    }
+
     Local.DiskHealthCollector {
         id: diskHealth
         active: page.active
@@ -530,23 +550,55 @@ Item {
         anchors.fill: parent
         spacing: page.sectionSpacing
 
-        // Configured aggregate sensors, collected in the background while the
-        // disk module is shown, so short read bursts remain visible as history.
+        // The same capacity reading as the panel, with its scope, then the
+        // activity history collected in the background while the module is shown.
         Rectangle {
-            visible: page.activityConfigured
             width: parent.width
-            height: page.activityHeight
+            height: summaryContent.implicitHeight + Kirigami.Units.smallSpacing * 2
             radius: Kirigami.Units.cornerRadius
             color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.04)
             border.width: 1
             border.color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08)
 
             ColumnLayout {
-                anchors.fill: parent
+                id: summaryContent
+
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
                 anchors.margins: Kirigami.Units.smallSpacing
                 spacing: Kirigami.Units.smallSpacing / 2
 
                 RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Kirigami.Units.smallSpacing
+
+                    Controls.Label {
+                        text: page.usageMonitor.available
+                            ? i18nc("@label disk capacity used", "%1 used", page.usageMonitor.text)
+                            : page.usageMonitor.text
+                        font.weight: Font.DemiBold
+                    }
+
+                    Controls.Label {
+                        visible: page.bytesAvailable
+                        text: i18nc("@label used disk space of total", "%1 of %2", usedBytesSensor.formattedValue, totalBytesSensor.formattedValue)
+                        color: Kirigami.Theme.disabledTextColor
+                        font.pixelSize: Kirigami.Theme.smallFont.pixelSize
+                    }
+
+                    Controls.Label {
+                        text: page.scope.scopeText
+                        color: Kirigami.Theme.disabledTextColor
+                        font.pixelSize: Kirigami.Theme.smallFont.pixelSize
+                        horizontalAlignment: Text.AlignRight
+                        elide: Text.ElideMiddle
+                        Layout.fillWidth: true
+                    }
+                }
+
+                RowLayout {
+                    visible: page.activityConfigured
                     Layout.fillWidth: true
                     spacing: Kirigami.Units.largeSpacing
 
@@ -563,22 +615,20 @@ Item {
                     }
 
                     Controls.Label {
-                        text: page.readMonitor.sensorId === page.defaultReadSensorId
-                            ? i18nc("@label disk activity scope and retained history", "All disks · %1",
-                                page.rootItem.historyCoverageText(page.rootItem.diskWriteSamples))
-                            : page.readMonitor.sensorId
+                        text: page.rootItem.historyCoverageText(page.rootItem.diskWriteSamples)
                         color: Kirigami.Theme.disabledTextColor
                         font.pixelSize: Kirigami.Theme.smallFont.pixelSize
                         horizontalAlignment: Text.AlignRight
-                        elide: Text.ElideMiddle
+                        elide: Text.ElideRight
                         Layout.fillWidth: true
                     }
                 }
 
                 // Reads are drawn above the baseline and writes below it.
                 Local.NetworkHistoryChart {
+                    visible: page.activityConfigured
                     Layout.fillWidth: true
-                    Layout.fillHeight: true
+                    Layout.preferredHeight: Kirigami.Units.gridUnit * 3.4
                     uploadSamples: page.rootItem.diskReadSamples
                     downloadSamples: page.rootItem.diskWriteSamples
                     windowDuration: page.rootItem.historyWindowDuration
