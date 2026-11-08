@@ -3,6 +3,7 @@ import QtQuick.Controls as Controls
 import QtQuick.Layouts
 
 import org.kde.kirigami as Kirigami
+import org.kde.plasma.core as PlasmaCore
 import org.kde.plasma.plasmoid
 import "." as Local
 
@@ -47,6 +48,9 @@ Item {
 
         property int tabIndex: 0
         property color accentColor: Kirigami.Theme.highlightColor
+        property string toolTipTitle: ""
+        property string toolTipText: ""
+        readonly property bool hovered: targetMouse.containsMouse
         default property alias content: contentRow.data
         readonly property real horizontalPadding: compact.horizontalPadding
         readonly property real fixedWidth: contentRow.implicitWidth + horizontalPadding * 2
@@ -79,14 +83,30 @@ Item {
             spacing: compact.innerSpacing
         }
 
-        MouseArea {
-            id: targetMouse
-
+        // The tooltip area must be an ancestor of the MouseArea to receive hover.
+        PlasmaCore.ToolTipArea {
             anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: compact.rootItem.toggleTab(target.tabIndex)
+            mainText: target.toolTipTitle
+            subText: target.toolTipText
+            location: Plasmoid.location
+            active: !compact.rootItem.expanded
+
+            MouseArea {
+                id: targetMouse
+
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: compact.rootItem.toggleTab(target.tabIndex)
+            }
         }
+    }
+
+    Local.PanelToolTips {
+        id: toolTips
+
+        rootItem: compact.rootItem
+        memoryDemand: memoryTarget.hovered
     }
 
     RowLayout {
@@ -103,6 +123,8 @@ Item {
 
         ClickTarget {
             visible: Plasmoid.configuration.showCpu
+            toolTipTitle: toolTips.cpuTitle
+            toolTipText: toolTips.cpuText
             accentColor: Kirigami.Theme.positiveTextColor
             tabIndex: 0
 
@@ -119,7 +141,11 @@ Item {
         }
 
         ClickTarget {
+            id: memoryTarget
+
             visible: Plasmoid.configuration.showMemory
+            toolTipTitle: toolTips.memoryTitle
+            toolTipText: toolTips.memoryText
             accentColor: Kirigami.Theme.focusColor
             tabIndex: 1
 
@@ -137,6 +163,8 @@ Item {
 
         ClickTarget {
             visible: Plasmoid.configuration.showGpu
+            toolTipTitle: toolTips.gpuTitle
+            toolTipText: toolTips.gpuText
             accentColor: Kirigami.Theme.negativeTextColor
             tabIndex: 2
 
@@ -157,6 +185,8 @@ Item {
 
         ClickTarget {
             visible: Plasmoid.configuration.showDisk
+            toolTipTitle: toolTips.diskTitle
+            toolTipText: toolTips.diskText
             accentColor: Kirigami.Theme.neutralTextColor
             tabIndex: 4
 
@@ -175,6 +205,8 @@ Item {
 
         ClickTarget {
             visible: Plasmoid.configuration.showNetwork
+            toolTipTitle: toolTips.networkTitle
+            toolTipText: toolTips.networkText
             accentColor: Kirigami.Theme.visitedLinkColor
             tabIndex: 3
 

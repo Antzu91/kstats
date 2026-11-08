@@ -22,8 +22,8 @@ PlasmoidItem {
     property alias memoryUsageMonitor: memoryUsage
     readonly property var diskUsageSensor: diskUsage.sensor
     property alias diskUsageMonitor: diskUsage
-    property alias diskReadSensor: diskRead
-    property alias diskWriteSensor: diskWrite
+    property alias diskReadMonitor: diskRead
+    property alias diskWriteMonitor: diskWrite
     readonly property var networkDownloadSensor: networkDownload.sensor
     property alias networkDownloadMonitor: networkDownload
     readonly property var networkUploadSensor: networkUpload.sensor
@@ -63,8 +63,13 @@ PlasmoidItem {
     switchWidth: Kirigami.Units.gridUnit * 12
     switchHeight: Kirigami.Units.gridUnit * 8
 
-    toolTipMainText: i18n("KStats")
-    toolTipSubText: i18n("CPU %1 | Memory %2 | Disk %3 | Down %4 | Up %5",
+    readonly property bool panelModulesVisible: Plasmoid.configuration.showCpu || Plasmoid.configuration.showMemory
+        || Plasmoid.configuration.showGpu || Plasmoid.configuration.showDisk || Plasmoid.configuration.showNetwork
+
+    // Each visible panel module owns its tooltip. An explicitly empty string
+    // hides Plasma's applet-wide tooltip; keep it only when no module is shown.
+    toolTipMainText: panelModulesVisible ? "" : i18n("KStats")
+    toolTipSubText: panelModulesVisible ? "" : i18n("CPU %1 | Memory %2 | Disk %3 | Down %4 | Up %5",
         cpuUsage.text,
         memoryUsage.text,
         diskUsage.text,
@@ -251,16 +256,20 @@ PlasmoidItem {
         updateRateLimit: root.sensorUpdateRate
     }
 
-    Sensors.Sensor {
+    Local.SensorMonitor {
         id: diskRead
-        enabled: root.configString(Plasmoid.configuration.diskReadSensorId).length > 0
+        metricId: "diskRead"
+        valueMode: "bytesPerSecond"
+        active: Plasmoid.configuration.showDisk || root.diskDetailsVisible
         sensorId: root.configString(Plasmoid.configuration.diskReadSensorId)
         updateRateLimit: root.sensorUpdateRate
     }
 
-    Sensors.Sensor {
+    Local.SensorMonitor {
         id: diskWrite
-        enabled: root.configString(Plasmoid.configuration.diskWriteSensorId).length > 0
+        metricId: "diskWrite"
+        valueMode: "bytesPerSecond"
+        active: Plasmoid.configuration.showDisk || root.diskDetailsVisible
         sensorId: root.configString(Plasmoid.configuration.diskWriteSensorId)
         updateRateLimit: root.sensorUpdateRate
     }
